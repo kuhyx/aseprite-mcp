@@ -53,3 +53,31 @@ def test_draw_rejects_bad_hex(sprite):
     res = run(drawing.draw_pixels_at(sprite, "bad", 1,
                                      [{"x": 0, "y": 0, "color": "#GG0000"}], True))
     assert res.startswith(("Invalid", "Failed"))
+
+
+def test_draw_pixels_at_grows_cel_for_distant_pixels(sprite):
+    """Pixels far outside an existing small cel must still be written.
+
+    Regression: Aseprite cels are only as large as their content's bounding
+    box, and putPixel() outside that box is silently discarded. The tool
+    reported success while writing nothing, which repeatedly produced
+    portraits with a missing mouth.
+    """
+    ok(run(canvas.add_layer(sprite, "far")))
+    # Seed a tiny cel in one corner.
+    ok(run(drawing.draw_pixels_at(sprite, "far", 1,
+                                  [{"x": 1, "y": 1, "color": "#FF0000"}])))
+    # Write well outside that cel's bounds.
+    ok(run(drawing.draw_pixels_at(sprite, "far", 1,
+                                  [{"x": 28, "y": 28, "color": "#00FF00"}])))
+    r, g, b, _ = _rgba(run(pixel_read.get_pixel_color(sprite, 28, 28, "far", 1)))
+    assert (r, g, b) == (0, 255, 0), (r, g, b)
+
+
+def test_draw_pixels_at_warns_on_offcanvas_pixels(sprite):
+    """Pixels outside the CANVAS cannot be drawn, so say so explicitly."""
+    ok(run(canvas.add_layer(sprite, "oob")))
+    result = run(drawing.draw_pixels_at(sprite, "oob", 1,
+                                        [{"x": 5, "y": 5, "color": "#FF0000"},
+                                         {"x": 500, "y": 500, "color": "#FF0000"}]))
+    assert "WARNING" in str(result), result

@@ -6,6 +6,24 @@ from ..core.colors import parse_hex_color
 from .. import mcp
 
 
+def _parse_write_counts(output: str, total: int) -> tuple[int, int]:
+    """Read the 'OK:<written>:<skipped>' marker emitted by draw_pixels_at.
+
+    Falls back to assuming everything landed when the marker is absent, so
+    older scripts keep working.
+    """
+    for line in output.splitlines():
+        line = line.strip()
+        if line.startswith("OK:"):
+            parts = line.split(":")
+            if len(parts) >= 3:
+                try:
+                    return int(parts[1]), int(parts[2])
+                except ValueError:
+                    break
+    return total, 0
+
+
 def _parse_hex_color(value: str) -> tuple[int, int, int, int] | None:
     """Parse a hex colour to (r, g, b, a); accepts #RRGGBB and #RRGGBBAA."""
     return parse_hex_color(value)
@@ -74,8 +92,17 @@ async def draw_pixels(filename: str, pixels: List[Dict[str, Any]]) -> str:
     else:
         return f"Failed to draw pixels: {output}"
 
+
 @mcp.tool()
-async def draw_line(filename: str, x1: int, y1: int, x2: int, y2: int, color: str = "#000000", thickness: int = 1) -> str:
+async def draw_line(
+    filename: str,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    color: str = "#000000",
+    thickness: int = 1,
+) -> str:
     """Draw a line on the canvas.
 
     Args:
@@ -158,8 +185,17 @@ async def draw_line(filename: str, x1: int, y1: int, x2: int, y2: int, color: st
     else:
         return f"Failed to draw line: {output}"
 
+
 @mcp.tool()
-async def draw_rectangle(filename: str, x: int, y: int, width: int, height: int, color: str = "#000000", fill: bool = False) -> str:
+async def draw_rectangle(
+    filename: str,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    color: str = "#000000",
+    fill: bool = False,
+) -> str:
     """Draw a rectangle on the canvas.
 
     Args:
@@ -221,6 +257,7 @@ async def draw_rectangle(filename: str, x: int, y: int, width: int, height: int,
     else:
         return f"Failed to draw rectangle: {output}"
 
+
 @mcp.tool()
 async def fill_area(filename: str, x: int, y: int, color: str = "#000000") -> str:
     """Fill an area with color using the paint bucket tool.
@@ -273,8 +310,16 @@ async def fill_area(filename: str, x: int, y: int, color: str = "#000000") -> st
     else:
         return f"Failed to fill area: {output}"
 
+
 @mcp.tool()
-async def draw_circle(filename: str, center_x: int, center_y: int, radius: int, color: str = "#000000", fill: bool = False) -> str:
+async def draw_circle(
+    filename: str,
+    center_x: int,
+    center_y: int,
+    radius: int,
+    color: str = "#000000",
+    fill: bool = False,
+) -> str:
     """Draw a circle on the canvas.
 
     Args:
@@ -331,13 +376,14 @@ async def draw_circle(filename: str, center_x: int, center_y: int, radius: int, 
     else:
         return f"Failed to draw circle: {output}"
 
+
 @mcp.tool()
 async def draw_pixels_at(
     filename: str,
     layer_name: str,
     frame_index: int,
     pixels: List[Dict[str, Any]],
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw pixels on a specific layer/frame.
 
@@ -353,6 +399,17 @@ async def draw_pixels_at(
 
     safe_layer_name = lua_escape(layer_name)
     create_flag = "true" if create_if_missing else "false"
+
+    # Bounding box of every requested pixel, so the cel can be grown to fit.
+    xs = [int(p.get("x", 0)) for p in pixels]
+    ys = [int(p.get("y", 0)) for p in pixels]
+    if xs and ys:
+        need_x, need_y = min(xs), min(ys)
+        need_w, need_h = max(xs) - need_x + 1, max(ys) - need_y + 1
+    else:
+        need_x = need_y = 0
+        need_w = need_h = 1
+
     script = f"""
     local spr = app.activeSprite
     if not spr then print("ERROR:No active sprite") return end
@@ -364,6 +421,10 @@ async def draw_pixels_at(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
+    -- Declared outside the transaction so the summary survives to the print.
+    local written = 0
+    local skipped = 0
+
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
@@ -373,10 +434,48 @@ async def draw_pixels_at(
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
         if not cel then return end
+
+        -- Grow the cel so every requested pixel is inside it.
+        --
+        -- Aseprite cels are only as large as their content's bounding box.
+        -- putPixel() outside that box is SILENTLY DISCARDED, so a caller
+        -- adding a feature in a fresh area (a mouth, a hairclip) got "OK"
+        -- back while nothing was written. Union the cel bounds with the
+        -- requested pixel bounds first, clipped to the sprite.
+        local need = Rectangle({need_x}, {need_y}, {need_w}, {need_h})
+        local cur = Rectangle(cel.bounds)
+        local union = cur:union(need)
+        local canvas = Rectangle(0, 0, spr.width, spr.height)
+        union = union:intersect(canvas)
+        if union.width > cur.width or union.height > cur.height
+           or union.x < cur.x or union.y < cur.y then
+            local grown = Image(union.width, union.height, spr.colorMode)
+            grown:clear()
+            grown:drawImage(cel.image, Point(cur.x - union.x, cur.y - union.y))
+            spr:newCel(target, spr.frames[idx], grown, Point(union.x, union.y))
+            cel = target:cel(spr.frames[idx])
+        end
+
         local img = cel.image
         local cox = cel.position.x
         local coy = cel.position.y
+        local function put(px, py, col)
+            -- Outside the sprite canvas can never be drawn; count it as
+            -- skipped so the caller is told rather than silently losing it.
+            if px < 0 or py < 0 or px >= spr.width or py >= spr.height then
+                skipped = skipped + 1
+                return
+            end
+            local lx, ly = px - cox, py - coy
+            if lx >= 0 and ly >= 0 and lx < img.width and ly < img.height then
+                img:putPixel(lx, ly, col)
+                written = written + 1
+            else
+                skipped = skipped + 1
+            end
+        end
     """
+
     for pixel in pixels:
         x = pixel.get("x", 0)
         y = pixel.get("y", 0)
@@ -385,20 +484,33 @@ async def draw_pixels_at(
             return f"Invalid color value: {pixel.get('color')}"
         r, g, b, a = rgb
         script += f"""
-        img:putPixel({x} - cox, {y} - coy, Color({r}, {g}, {b}, {a}))
+        put({x}, {y}, Color({r}, {g}, {b}, {a}))
         """
 
     script += """
     end)
 
     spr:saveAs(spr.filename)
-    print("OK")
+    print("OK:" .. tostring(written) .. ":" .. tostring(skipped))
     """
 
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
-    if success:
-        return f"Pixels drawn on '{layer_name}' frame {frame_index} in {filename}"
-    return f"Failed to draw pixels: {output}"
+    if not success:
+        return f"Failed to draw pixels: {output}"
+
+    # Surface partial writes instead of reporting a blanket success.
+    written, skipped = _parse_write_counts(output, len(pixels))
+    if skipped:
+        return (
+            f"WARNING: only {written}/{len(pixels)} pixels written on "
+            f"'{layer_name}' frame {frame_index}; {skipped} fell outside the "
+            f"canvas and were discarded."
+        )
+    return (
+        f"Pixels drawn on '{layer_name}' frame {frame_index} in {filename} "
+        f"({written} pixels)"
+    )
+
 
 @mcp.tool()
 async def draw_line_at(
@@ -411,7 +523,7 @@ async def draw_line_at(
     y2: int,
     color: str = "#000000",
     thickness: int = 1,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw a line on a specific layer/frame.
 
@@ -501,6 +613,7 @@ async def draw_line_at(
         return f"Line drawn on '{layer_name}' frame {frame_index} in {filename}"
     return f"Failed to draw line: {output}"
 
+
 @mcp.tool()
 async def draw_rectangle_at(
     filename: str,
@@ -512,7 +625,7 @@ async def draw_rectangle_at(
     height: int,
     color: str = "#000000",
     fill: bool = False,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw a rectangle on a specific layer/frame.
 
@@ -580,6 +693,7 @@ async def draw_rectangle_at(
         return f"Rectangle drawn on '{layer_name}' frame {frame_index} in {filename}"
     return f"Failed to draw rectangle: {output}"
 
+
 @mcp.tool()
 async def draw_circle_at(
     filename: str,
@@ -590,7 +704,7 @@ async def draw_circle_at(
     radius: int,
     color: str = "#000000",
     fill: bool = False,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw a circle on a specific layer/frame.
 
@@ -656,6 +770,7 @@ async def draw_circle_at(
         return f"Circle drawn on '{layer_name}' frame {frame_index} in {filename}"
     return f"Failed to draw circle: {output}"
 
+
 @mcp.tool()
 async def fill_area_at(
     filename: str,
@@ -664,7 +779,7 @@ async def fill_area_at(
     x: int,
     y: int,
     color: str = "#000000",
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Fill an area on a specific layer/frame.
 
@@ -724,6 +839,7 @@ async def fill_area_at(
         return f"Area filled on '{layer_name}' frame {frame_index} in {filename}"
     return f"Failed to fill area: {output}"
 
+
 @mcp.tool()
 async def draw_polygon(
     filename: str,
@@ -732,7 +848,7 @@ async def draw_polygon(
     points: List[Dict[str, int]],
     color: str = "#000000",
     fill: bool = False,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw a polygon on a specific layer/frame.
 
@@ -848,6 +964,7 @@ async def draw_polygon(
         return f"Polygon drawn on '{layer_name}' frame {frame_index} in {filename}"
     return f"Failed to draw polygon: {output}"
 
+
 @mcp.tool()
 async def draw_path(
     filename: str,
@@ -856,7 +973,7 @@ async def draw_path(
     points: List[Dict[str, int]],
     color: str = "#000000",
     thickness: int = 1,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw a path using a polyline on a specific layer/frame.
 
@@ -945,6 +1062,7 @@ async def draw_path(
         return f"Path drawn on '{layer_name}' frame {frame_index} in {filename}"
     return f"Failed to draw path: {output}"
 
+
 @mcp.tool()
 async def apply_gradient_rect(
     filename: str,
@@ -957,7 +1075,7 @@ async def apply_gradient_rect(
     color_start: str,
     color_end: str,
     horizontal: bool = True,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Apply a linear gradient fill to a rectangle.
 
@@ -1051,7 +1169,7 @@ async def draw_ellipse_at(
     radius_y: int,
     color: str = "#000000",
     fill: bool = False,
-    create_if_missing: bool = True
+    create_if_missing: bool = True,
 ) -> str:
     """Draw an ellipse on a specific layer/frame.
 
