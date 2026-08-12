@@ -1,20 +1,33 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def create_canvas(
-    width: int, height: int, filename: str = "canvas.aseprite"
+    width: Annotated[int, Field(description="Width of the canvas in pixels")],
+    height: Annotated[int, Field(description="Height of the canvas in pixels")],
+    filename: Annotated[
+        str, Field(description="Name of the output .aseprite file to create")
+    ] = "canvas.aseprite",
 ) -> str:
     """Create a new Aseprite canvas with specified dimensions.
 
-    Args:
-        width: Width of the canvas in pixels
-        height: Height of the canvas in pixels
-        filename: Name of the output file (default: canvas.aseprite)
+    WARNING: writes unconditionally — if filename already exists, it is
+    silently overwritten with a blank canvas with no confirmation prompt.
     """
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -37,17 +50,31 @@ async def create_canvas(
         return f"Failed to create canvas: {output}"
 
 
-@mcp.tool()
-async def add_layer(filename: str, layer_name: str, group: str = "") -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def add_layer(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the new layer")],
+    group: Annotated[
+        str,
+        Field(
+            description="Optional group to place the new layer inside, by name "
+            "or 'group/subgroup' path (default: top level)"
+        ),
+    ] = "",
+) -> str:
     """Add a new layer to the Aseprite file.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Name of the new layer
-        group: Optional group to place the new layer inside, by name or
-            "group/subgroup" path (default: top level)
+    Each call creates another new layer, even if a layer with the same name
+    already exists — call this once per layer you want to add.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -83,20 +110,32 @@ async def add_layer(filename: str, layer_name: str, group: str = "") -> str:
         return f"Failed to add layer: {output}"
 
 
-@mcp.tool()
-async def add_group(filename: str, group_name: str, parent_group: str = "") -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def add_group(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    group_name: Annotated[str, Field(description="Name of the new group")],
+    parent_group: Annotated[
+        str,
+        Field(
+            description="Optional existing group to nest the new group inside, "
+            "by name or 'group/subgroup' path (default: top level)"
+        ),
+    ] = "",
+) -> str:
     """Add a new, empty group layer.
 
     Combine with add_layer(group=...) / duplicate_layer(group=...) to build a
-    grouped layer structure.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        group_name: Name of the new group
-        parent_group: Optional existing group to nest the new group inside, by
-            name or "group/subgroup" path (default: top level)
+    grouped layer structure. Each call creates another new group, even if one
+    with the same name already exists.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_group = lua_escape(group_name)
@@ -131,14 +170,23 @@ async def add_group(filename: str, group_name: str, parent_group: str = "") -> s
     return f"Failed to create group: {output}"
 
 
-@mcp.tool()
-async def add_frame(filename: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def add_frame(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+) -> str:
     """Add a new frame to the Aseprite file.
 
-    Args:
-        filename: Name of the Aseprite file to modify
+    Each call appends another new frame — calling it twice adds two frames,
+    not one.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = """
@@ -161,15 +209,22 @@ async def add_frame(filename: str) -> str:
         return f"Failed to add frame: {output}"
 
 
-@mcp.tool()
-async def set_frame(filename: str, frame_index: int) -> str:
-    """Set the active frame by index (1-based).
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        frame_index: Frame index starting at 1
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_frame(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to activate, starting at 1")
+    ],
+) -> str:
+    """Set the active frame by index (1-based)."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = f"""
@@ -197,16 +252,25 @@ async def set_frame(filename: str, frame_index: int) -> str:
         return f"Failed to set frame: {output}"
 
 
-@mcp.tool()
-async def set_frame_duration(filename: str, frame_index: int, duration_ms: int) -> str:
-    """Set the duration of a frame in milliseconds.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        frame_index: Frame index starting at 1
-        duration_ms: Duration in milliseconds
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_frame_duration(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to update, starting at 1")
+    ],
+    duration_ms: Annotated[
+        int, Field(description="New frame duration in milliseconds")
+    ],
+) -> str:
+    """Set the duration of a frame in milliseconds."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if duration_ms <= 0:
         return "Duration must be > 0"
@@ -236,18 +300,28 @@ async def set_frame_duration(filename: str, frame_index: int, duration_ms: int) 
         return f"Failed to set frame duration: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_layer(
-    filename: str, layer_name: str, create_if_missing: bool = False
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer name to activate")],
+    create_if_missing: Annotated[
+        bool, Field(description="Create the layer if it does not already exist")
+    ] = False,
 ) -> str:
     """Set the active layer by name.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to activate
-        create_if_missing: Create layer if it does not exist
+    Looks up an existing layer by name and re-uses it if create_if_missing is
+    set, so calling this again with the same name does not create a second
+    layer.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     create_flag = "true" if create_if_missing else "false"

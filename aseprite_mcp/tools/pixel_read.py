@@ -1,30 +1,43 @@
 import json
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 from .analysis import _FLATTEN_FRAME
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def get_pixel_color(
-    filename: str,
-    x: int,
-    y: int,
-    layer_name: str = "",
-    frame_index: int = 1,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to read")],
+    x: Annotated[int, Field(description="X coordinate to read (sprite-global)")],
+    y: Annotated[int, Field(description="Y coordinate to read (sprite-global)")],
+    layer_name: Annotated[
+        str,
+        Field(description="Layer to read from; uses the active layer/cel when empty"),
+    ] = "",
+    frame_index: Annotated[
+        int, Field(description="Frame index to read, starting at 1")
+    ] = 1,
 ) -> str:
-    """Read the RGBA color of a single pixel.
+    """Read the RGBA color of a single pixel from one layer's cel.
 
-    Args:
-        filename: Aseprite file to read
-        x: X coordinate
-        y: Y coordinate
-        layer_name: Layer to read from (uses active layer when empty)
-        frame_index: Frame index starting at 1
+    This reads only the named layer's own cel — it does not account for
+    layers above it, opacity, or blend modes. Use get_composite_pixel
+    instead when you need "what the player actually sees" at that pixel.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer = lua_escape(layer_name)
@@ -78,31 +91,48 @@ async def get_pixel_color(
     return "No pixel data returned"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def get_pixels_rect(
-    filename: str,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    layer_name: str = "",
-    frame_index: int = 1,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to read")],
+    x: Annotated[
+        int, Field(description="Top-left x coordinate of the region (sprite-global)")
+    ],
+    y: Annotated[
+        int, Field(description="Top-left y coordinate of the region (sprite-global)")
+    ],
+    width: Annotated[
+        int, Field(description="Width of the region in pixels; must be > 0")
+    ],
+    height: Annotated[
+        int, Field(description="Height of the region in pixels; must be > 0")
+    ],
+    layer_name: Annotated[
+        str,
+        Field(description="Layer to read from; uses the active layer/cel when empty"),
+    ] = "",
+    frame_index: Annotated[
+        int, Field(description="Frame index to read, starting at 1")
+    ] = 1,
 ) -> str:
-    """Read all pixel colors in a rectangular region.
+    """Read all pixel colors in a rectangular region from one layer's cel.
 
-    Args:
-        filename: Aseprite file to read
-        x: Top-left x coordinate
-        y: Top-left y coordinate
-        width: Width of the region
-        height: Height of the region
-        layer_name: Layer to read from (uses active layer when empty)
-        frame_index: Frame index starting at 1
+    This reads only the named layer's own cel — it does not account for
+    layers above it, opacity, or blend modes. Use get_composite_rect
+    instead when you need "what the player actually sees" over that
+    region.
 
     Returns:
         JSON array of {x, y, hex, r, g, b, a} objects
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -182,23 +212,29 @@ async def get_pixels_rect(
     return json.dumps(pixels)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def get_composite_pixel(
-    filename: str, x: int, y: int, frame_index: int = 1
+    filename: Annotated[str, Field(description="Path to the Aseprite file to read")],
+    x: Annotated[int, Field(description="X coordinate to read (sprite-global)")],
+    y: Annotated[int, Field(description="Y coordinate to read (sprite-global)")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to read, starting at 1")
+    ] = 1,
 ) -> str:
     """Read the RGBA colour VISIBLE at a pixel (flattened composite of all layers).
 
     Unlike get_pixel_color (which reads a single cel), this composites every
     visible layer — "what the player actually sees" — by flattening a throwaway
     clone. Essential for value/CVD QA on grouped/multi-layer scenes.
-
-    Args:
-        filename: Aseprite file to read
-        x: X coordinate (sprite-global)
-        y: Y coordinate (sprite-global)
-        frame_index: Frame index starting at 1
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = f"""
@@ -233,32 +269,42 @@ async def get_composite_pixel(
     return "No pixel data returned"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def get_composite_rect(
-    filename: str,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    frame_index: int = 1,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to read")],
+    x: Annotated[
+        int, Field(description="Top-left x coordinate of the region (sprite-global)")
+    ],
+    y: Annotated[
+        int, Field(description="Top-left y coordinate of the region (sprite-global)")
+    ],
+    width: Annotated[
+        int, Field(description="Width of the region in pixels; must be > 0")
+    ],
+    height: Annotated[
+        int, Field(description="Height of the region in pixels; must be > 0")
+    ],
+    frame_index: Annotated[
+        int, Field(description="Frame index to read, starting at 1")
+    ] = 1,
 ) -> str:
     """Read VISIBLE RGBA over a rectangle (flattened composite of all layers).
 
     The rectangular counterpart of get_composite_pixel — reads the composited
     pixels every visible layer produces, not a single cel.
 
-    Args:
-        filename: Aseprite file to read
-        x: Top-left x (sprite-global)
-        y: Top-left y (sprite-global)
-        width: Region width
-        height: Region height
-        frame_index: Frame index starting at 1
-
     Returns:
         JSON array of {x, y, hex, r, g, b, a} objects
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"

@@ -1,9 +1,36 @@
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
+
 from .. import mcp
 
 
-@mcp.tool()
-async def animation_workflow_guide(use_case: str = "character") -> str:
-    """Return a concise English guide for optimized animation workflows."""
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def animation_workflow_guide(
+    use_case: Annotated[
+        str,
+        Field(
+            description=(
+                "Kind of animation to plan for: 'character', 'environment', "
+                "or anything else for a generic workflow"
+            )
+        ),
+    ] = "character",
+) -> str:
+    """Return a concise English guide for optimized animation workflows.
+
+    Use this before starting a non-trivial animation to get a recommended
+    tool sequence (blocking, propagation, tweening, tagging, validation)
+    tailored to the use case, instead of guessing a workflow from scratch.
+    """
     use_case = (use_case or "character").strip().lower()
     header = "Animation Workflow Guide"
     if use_case == "character":

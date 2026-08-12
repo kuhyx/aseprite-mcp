@@ -1,26 +1,32 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def flip_layer(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    direction: str = "horizontal",
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer name to flip")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    direction: Annotated[
+        str, Field(description='"horizontal" or "vertical"')
+    ] = "horizontal",
 ) -> str:
-    """Flip a layer's image horizontally or vertically.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer name to flip
-        frame_index: Frame index starting at 1
-        direction: "horizontal" or "vertical"
-    """
-    if not os.path.exists(filename):
+    """Flip a layer's image horizontally or vertically."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if direction not in ("horizontal", "vertical"):
         return "direction must be 'horizontal' or 'vertical'"
@@ -77,22 +83,24 @@ async def flip_layer(
     return f"Failed to flip layer: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def rotate_layer(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    angle: int = 90,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer name to rotate")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    angle: Annotated[
+        int, Field(description="Rotation angle: 90, 180, or 270 (clockwise)")
+    ] = 90,
 ) -> str:
-    """Rotate a layer's image 90, 180, or 270 degrees clockwise.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer name to rotate
-        frame_index: Frame index starting at 1
-        angle: Rotation angle: 90, 180, or 270 (clockwise)
-    """
-    if not os.path.exists(filename):
+    """Rotate a layer's image 90, 180, or 270 degrees clockwise."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if angle not in (90, 180, 270):
         return "angle must be 90, 180, or 270"
@@ -172,16 +180,21 @@ async def rotate_layer(
     return f"Failed to rotate layer: {output}"
 
 
-@mcp.tool()
-async def resize_canvas(filename: str, width: int, height: int) -> str:
-    """Scale the canvas and all its content to new dimensions.
-
-    Args:
-        filename: Aseprite file to modify
-        width: New canvas width in pixels
-        height: New canvas height in pixels
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def resize_canvas(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    width: Annotated[int, Field(description="New canvas width in pixels")],
+    height: Annotated[int, Field(description="New canvas height in pixels")],
+) -> str:
+    """Scale the canvas and all its content to new dimensions."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -204,18 +217,23 @@ async def resize_canvas(filename: str, width: int, height: int) -> str:
     return f"Failed to resize canvas: {output}"
 
 
-@mcp.tool()
-async def crop_canvas(filename: str, x: int, y: int, width: int, height: int) -> str:
-    """Crop the canvas to the given rectangle, discarding content outside it.
-
-    Args:
-        filename: Aseprite file to modify
-        x: Left edge of the crop area
-        y: Top edge of the crop area
-        width: Width of the crop area
-        height: Height of the crop area
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def crop_canvas(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    x: Annotated[int, Field(description="Left edge of the crop area")],
+    y: Annotated[int, Field(description="Top edge of the crop area")],
+    width: Annotated[int, Field(description="Width of the crop area")],
+    height: Annotated[int, Field(description="Height of the crop area")],
+) -> str:
+    """Crop the canvas to the given rectangle, discarding content outside it."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"

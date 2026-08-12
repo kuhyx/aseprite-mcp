@@ -6,14 +6,18 @@ result is blitted into the sprite as an image.
 
 import os
 import tempfile
+from typing import Annotated
 
+from mcp.types import ToolAnnotations
 from PIL import Image
+from pydantic import Field
 
 from .. import mcp
 from ..core import fonts as fontlib
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL
+from ..core.paths import path_exists
 
 _ANCHORS = (
     "topleft",
@@ -57,7 +61,14 @@ def _text_origin(
     return origin_x, y - metrics["top"]
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def list_text_fonts() -> str:
     """List fonts that draw_text can use.
 
@@ -86,29 +97,44 @@ async def list_text_fonts() -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def measure_text(
-    text: str,
-    font: str,
-    size: int = 1,
-    letter_spacing: int = 0,
-    bold: int = 0,
-    antialias: bool = False,
+    text: Annotated[str, Field(description="The string to measure")],
+    font: Annotated[
+        str,
+        Field(
+            description="Font name from list_text_fonts, or a path to a "
+            ".ttf/.otf file or a bitmap font directory"
+        ),
+    ],
+    size: Annotated[
+        int,
+        Field(
+            description="Pixel size for TrueType fonts; integer scale factor "
+            "for bitmap fonts"
+        ),
+    ] = 1,
+    letter_spacing: Annotated[
+        int, Field(description="Extra pixels between glyphs")
+    ] = 0,
+    bold: Annotated[
+        int, Field(description="Faux-bold passes; each grows strokes by 1px")
+    ] = 0,
+    antialias: Annotated[
+        bool, Field(description="Keep greyscale edges instead of hard pixels")
+    ] = False,
 ) -> str:
     """Measure text without drawing it.
 
     Use this to size a panel or centre a label in one shot instead of
     guessing and re-rendering.
-
-    Args:
-        text: The string to measure
-        font: Font name from list_text_fonts, or a path to a .ttf/.otf or
-            bitmap font directory
-        size: Pixel size for TrueType fonts; integer scale factor for bitmap
-            fonts (default 1)
-        letter_spacing: Extra pixels between glyphs (default 0)
-        bold: Faux-bold passes; each grows strokes by 1px (default 0)
-        antialias: Keep greyscale edges instead of hard pixels (default False)
 
     Returns:
         width, height, advance_width, and the ink extents above/below the
@@ -127,63 +153,86 @@ async def measure_text(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def draw_text(
-    filename: str,
-    text: str,
-    x: int,
-    y: int,
-    font: str,
-    size: int = 1,
-    color: str = "#FFFFFF",
-    layer_name: str | None = None,
-    frame_index: int = 1,
-    anchor: str = "topleft",
-    letter_spacing: int = 0,
-    bold: int = 0,
-    outline_color: str | None = None,
-    outline_width: int = 1,
-    outline_diagonal: bool = True,
-    shadow_color: str | None = None,
-    shadow_dx: int = 1,
-    shadow_dy: int = 1,
-    antialias: bool = False,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    text: Annotated[str, Field(description="String to draw")],
+    x: Annotated[int, Field(description="X coordinate of the anchor point")],
+    y: Annotated[int, Field(description="Y coordinate of the anchor point")],
+    font: Annotated[
+        str,
+        Field(
+            description="Font name from list_text_fonts, or a path to a "
+            ".ttf/.otf file or a bitmap font directory"
+        ),
+    ],
+    size: Annotated[
+        int,
+        Field(
+            description="Pixel size for TrueType fonts; integer scale factor "
+            "for bitmap fonts"
+        ),
+    ] = 1,
+    color: Annotated[
+        str, Field(description="Text colour, #RRGGBB or #RRGGBBAA")
+    ] = "#FFFFFF",
+    layer_name: Annotated[
+        str | None,
+        Field(description="Layer to draw on; the active/first layer if omitted"),
+    ] = None,
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")] = 1,
+    anchor: Annotated[
+        str,
+        Field(
+            description="Which point of the text (x, y) refers to - one of "
+            "topleft, top, topright, left, center, right, bottomleft, bottom, "
+            "bottomright, baselineleft, baseline, baselineright"
+        ),
+    ] = "topleft",
+    letter_spacing: Annotated[
+        int, Field(description="Extra pixels between glyphs")
+    ] = 0,
+    bold: Annotated[
+        int, Field(description="Faux-bold passes; each grows strokes by 1px")
+    ] = 0,
+    outline_color: Annotated[
+        str | None, Field(description="If set, draw a 1px outline in this colour")
+    ] = None,
+    outline_width: Annotated[int, Field(description="Outline thickness in pixels")] = 1,
+    outline_diagonal: Annotated[
+        bool,
+        Field(
+            description="Include diagonal neighbours in the outline, giving a "
+            "rounded corner; False gives a boxier 4-way outline"
+        ),
+    ] = True,
+    shadow_color: Annotated[
+        str | None, Field(description="If set, draw a drop shadow in this colour")
+    ] = None,
+    shadow_dx: Annotated[int, Field(description="Shadow X offset in pixels")] = 1,
+    shadow_dy: Annotated[int, Field(description="Shadow Y offset in pixels")] = 1,
+    antialias: Annotated[
+        bool, Field(description="Keep greyscale edges instead of hard pixels")
+    ] = False,
+    create_if_missing: Annotated[
+        bool, Field(description="Create the layer/cel if absent")
+    ] = True,
 ) -> str:
     """Draw text onto a sprite.
 
     Glyphs are rasterised outside Aseprite and composited in, because the
-    Lua API has no text drawing of its own.
-
-    Args:
-        filename: Aseprite file to modify
-        text: String to draw
-        x: X coordinate of the anchor point
-        y: Y coordinate of the anchor point
-        font: Font name from list_text_fonts, or a path to a .ttf/.otf or a
-            bitmap font directory
-        size: Pixel size for TrueType fonts; integer scale factor for bitmap
-            fonts (default 1)
-        color: Text colour, #RRGGBB or #RRGGBBAA (default white)
-        layer_name: Layer to draw on; the active/first layer if omitted
-        frame_index: Frame index starting at 1 (default 1)
-        anchor: Which point of the text (x, y) refers to - one of topleft,
-            top, topright, left, center, right, bottomleft, bottom,
-            bottomright, baselineleft, baseline, baselineright
-            (default topleft)
-        letter_spacing: Extra pixels between glyphs (default 0)
-        bold: Faux-bold passes; each grows strokes by 1px (default 0)
-        outline_color: If set, draw a 1px outline in this colour
-        outline_width: Outline thickness in pixels (default 1)
-        outline_diagonal: Include diagonal neighbours in the outline, giving a
-            rounded corner; False gives a boxier 4-way outline (default True)
-        shadow_color: If set, draw a drop shadow in this colour
-        shadow_dx: Shadow X offset (default 1)
-        shadow_dy: Shadow Y offset (default 1)
-        antialias: Keep greyscale edges instead of hard pixels (default False)
-        create_if_missing: Create the layer/cel if absent (default True)
+    Lua API has no text drawing of its own. Each call blits the rendered
+    text onto whatever is already in the cel, so calling this twice at the
+    same position draws the text twice rather than converging on one result.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if anchor not in _ANCHORS:
         return (

@@ -1,11 +1,15 @@
 import colorsys
 import json
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 
 # Well-known retro/pixel-art palettes.
 PALETTE_PRESETS = {
@@ -110,10 +114,21 @@ def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     return rgba[:3] if rgba else None
 
 
-@mcp.tool()
-async def get_palette(filename: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def get_palette(
+    filename: Annotated[
+        str, Field(description="Path to the Aseprite file to read the palette from")
+    ],
+) -> str:
     """Get the active sprite palette as a JSON array of hex colors."""
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = """
@@ -144,10 +159,25 @@ async def get_palette(filename: str) -> str:
     return f"Failed to get palette: {output}"
 
 
-@mcp.tool()
-async def set_palette(filename: str, colors: list[str]) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_palette(
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    colors: Annotated[
+        list[str],
+        Field(
+            description="Full replacement palette as a list of #RRGGBB hex color strings"
+        ),
+    ],
+) -> str:
     """Set the active sprite palette using a list of hex colors."""
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not colors:
         return "Colors list cannot be empty"
@@ -183,28 +213,52 @@ async def set_palette(filename: str, colors: list[str]) -> str:
     return f"Failed to set palette: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def remap_colors_in_cel_range(
-    filename: str,
-    layer_name: str,
-    start_frame: int,
-    end_frame: int,
-    mappings: list[dict[str, str]],
-    create_missing_cels: bool = False,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer to remap colors in")
+    ],
+    start_frame: Annotated[
+        int, Field(description="First frame index (1-based) to remap colors in")
+    ],
+    end_frame: Annotated[
+        int, Field(description="Last frame index (1-based) to remap colors in")
+    ],
+    mappings: Annotated[
+        list[dict[str, str]],
+        Field(
+            description=(
+                "Color mappings to apply, each a dict with 'from' and 'to' "
+                "#RRGGBB hex color strings"
+            )
+        ),
+    ],
+    create_missing_cels: Annotated[
+        bool,
+        Field(
+            description="Create a cel (cloned from the source frame) where one is missing"
+        ),
+    ] = False,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Frame index to clone from when creating missing cels; "
+                "defaults to start_frame when not given"
+            )
+        ),
+    ] = None,
 ) -> str:
-    """Remap colors in a layer across a frame range using explicit mappings.
-
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to remap colors in.
-        start_frame (int): The start frame index to remap colors in.
-        end_frame (int): The end frame index to remap colors in.
-        mappings (List[dict]): The color mappings to use.
-        create_missing_cels (bool, optional): Whether to create missing cels. Defaults to False.
-        source_frame_index (int | None, optional): The source frame index to use for remapping. Defaults to None.
-    """
-    if not os.path.exists(filename):
+    """Remap colors in a layer across a frame range using explicit mappings."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not mappings:
         return "Mappings list cannot be empty"
@@ -298,27 +352,48 @@ async def remap_colors_in_cel_range(
     return f"Failed to remap colors: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def list_palette_presets() -> str:
     """List the built-in retro palette presets with their colors.
 
     Returns:
         JSON object mapping preset name to its list of hex colors.
+
     """
     return json.dumps(PALETTE_PRESETS, indent=2)
 
 
-@mcp.tool()
-async def apply_palette_preset(filename: str, preset: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def apply_palette_preset(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    preset: Annotated[
+        str,
+        Field(
+            description=(
+                "Preset name: one of gameboy, monochrome, grayscale_4, cga, "
+                "pico8, c64, dawnbringer16, dawnbringer32"
+            )
+        ),
+    ],
+) -> str:
     """Set the sprite palette to a built-in retro preset.
 
     This only sets the palette; existing pixels keep their colors.
     Use quantize_to_palette afterwards to snap pixels to the new palette.
-
-    Args:
-        filename: Aseprite file to modify
-        preset: One of: gameboy, monochrome, grayscale_4, cga, pico8, c64,
-            dawnbringer16, dawnbringer32
     """
     colors = PALETTE_PRESETS.get(preset.lower())
     if colors is None:
@@ -329,12 +404,25 @@ async def apply_palette_preset(filename: str, preset: str) -> str:
     return result
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def generate_color_ramp(
-    base_color: str,
-    steps: int = 5,
-    hue_shift_degrees: float = 20,
-    lightness_range: float = 0.5,
+    base_color: Annotated[
+        str, Field(description='Hex color the ramp is built around, e.g. "#D04648"')
+    ],
+    steps: Annotated[int, Field(description="Number of colors in the ramp, 2-16")] = 5,
+    hue_shift_degrees: Annotated[
+        float, Field(description="Total hue rotation across the ramp, in degrees")
+    ] = 20,
+    lightness_range: Annotated[
+        float, Field(description="Total lightness span across the ramp, 0-1")
+    ] = 0.5,
 ) -> str:
     """Generate a shading ramp (dark to light) from a base color.
 
@@ -343,14 +431,9 @@ async def generate_color_ramp(
     Use the returned colors for shading instead of plain darker/lighter
     versions of the same hue.
 
-    Args:
-        base_color: Hex color the ramp is built around, e.g. "#D04648"
-        steps: Number of colors in the ramp, 2-16 (default 5)
-        hue_shift_degrees: Total hue rotation across the ramp (default 20)
-        lightness_range: Total lightness span across the ramp, 0-1 (default 0.5)
-
     Returns:
         JSON array of hex colors ordered darkest to lightest.
+
     """
     rgb = _parse_hex_color(base_color)
     if rgb is None:
@@ -377,26 +460,37 @@ async def generate_color_ramp(
     return json.dumps(ramp)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def quantize_to_palette(
-    filename: str,
-    layer_name: str = "",
-    start_frame: int = 1,
-    end_frame: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str,
+        Field(description="Layer to quantize; empty string means all top-level layers"),
+    ] = "",
+    start_frame: Annotated[
+        int, Field(description="First frame (1-based) to process")
+    ] = 1,
+    end_frame: Annotated[
+        int,
+        Field(description="Last frame (1-based) to process; 0 means the last frame"),
+    ] = 0,
 ) -> str:
     """Snap every pixel to the nearest color in the sprite's palette.
 
     Walks the chosen cels and replaces each opaque pixel with the
     closest palette color (RGB distance). Run after apply_palette_preset
-    or set_palette to make existing art conform to the palette.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to quantize (empty = all top-level layers)
-        start_frame: First frame to process (default 1)
-        end_frame: Last frame to process (default 0 = last frame)
+    or set_palette to make existing art conform to the palette. This is
+    destructive: original colors that are not exact palette matches are
+    permanently replaced.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer = lua_escape(layer_name)
@@ -490,15 +584,26 @@ async def quantize_to_palette(
     return f"Quantized {count} pixels to the palette in {filename}"
 
 
-@mcp.tool()
-async def set_color_mode(filename: str, mode: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_color_mode(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    mode: Annotated[
+        str, Field(description='Target color mode: "rgb", "grayscale", or "indexed"')
+    ],
+) -> str:
     """Convert the sprite's color mode.
 
-    Args:
-        filename: Aseprite file to modify
-        mode: "rgb", "grayscale", or "indexed"
+    Converting to "indexed" or "grayscale" can lose color information
+    that is not exactly representable in the target mode.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if mode.lower() not in ("rgb", "grayscale", "indexed"):
         return "mode must be 'rgb', 'grayscale', or 'indexed'"

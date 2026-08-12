@@ -1,30 +1,44 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def copy_layers_between_sprites(
-    source_filename: str,
-    target_filename: str,
-    layer_names: list[str],
-    replace: bool = True,
-    create_missing_frames: bool = True,
+    source_filename: Annotated[
+        str, Field(description="Source .aseprite file to copy layers from")
+    ],
+    target_filename: Annotated[
+        str, Field(description="Target .aseprite file to copy layers into")
+    ],
+    layer_names: Annotated[list[str], Field(description="Names of the layers to copy")],
+    replace: Annotated[
+        bool, Field(description="Overwrite existing cels on matching target layers")
+    ] = True,
+    create_missing_frames: Annotated[
+        bool,
+        Field(
+            description="Add frames to the target sprite if it has fewer than the source"
+        ),
+    ] = True,
 ) -> str:
-    """Copy layers by name from a source sprite to a target sprite.
-
-    Args:
-        source_filename: Source .aseprite file
-        target_filename: Target .aseprite file
-        layer_names: List of layer names to copy
-        replace: Overwrite existing cels in target layers
-        create_missing_frames: Add frames to target if needed
-    """
-    if not os.path.exists(source_filename):
+    """Copy layers by name from a source sprite to a target sprite."""
+    if not await path_exists(source_filename):
         return f"File {source_filename} not found"
-    if not os.path.exists(target_filename):
+    if not await path_exists(target_filename):
         return f"File {target_filename} not found"
     if not layer_names:
         return "Layer names list cannot be empty"

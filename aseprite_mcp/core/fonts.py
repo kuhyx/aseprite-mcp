@@ -49,20 +49,21 @@ import json
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont
 
-FONT_DIR = os.path.expanduser("~/.aseprite-mcp/fonts")
+FONT_DIR = str(Path("~/.aseprite-mcp/fonts").expanduser())
 
 _SYSTEM_FONT_DIRS = (
     "/System/Library/Fonts",
     "/Library/Fonts",
-    os.path.expanduser("~/Library/Fonts"),
+    str(Path("~/Library/Fonts").expanduser()),
     "/usr/share/fonts",
     "/usr/local/share/fonts",
-    os.path.expanduser("~/.fonts"),
+    str(Path("~/.fonts").expanduser()),
     "C:/Windows/Fonts",
 )
 
@@ -100,14 +101,14 @@ class BitmapFont:
     is_bitmap = True
 
     def __init__(self, path: str):
-        descriptor = os.path.join(path, "font.json")
+        descriptor = Path(path, "font.json")
         try:
-            with open(descriptor, encoding="utf-8") as fh:
+            with descriptor.open(encoding="utf-8") as fh:
                 spec = json.load(fh)
         except (OSError, ValueError) as exc:
             raise FontError(f"Could not read {descriptor}: {exc}") from exc
 
-        self.name = spec.get("name", os.path.basename(path))
+        self.name = spec.get("name", Path(path).name)
         self.letter_gap = int(spec.get("letter_gap", 1))
         self.space_width = int(spec.get("space_width", 3))
         self._cache: dict[int, Glyph | None] = {}
@@ -116,7 +117,7 @@ class BitmapFont:
 
         for sheet in spec.get("sheets") or ():
             try:
-                image = Image.open(os.path.join(path, sheet["file"])).convert("RGBA")
+                image = Image.open(Path(path, sheet["file"])).convert("RGBA")
             except (OSError, KeyError) as exc:
                 raise FontError(f"Bad sheet in {descriptor}: {exc}") from exc
             self._sheets.append(
@@ -273,7 +274,7 @@ class TrueTypeFont:
 
     def __init__(self, path: str):
         self.path = path
-        self.name = os.path.splitext(os.path.basename(path))[0]
+        self.name = Path(path).stem
 
     def layout(
         self,
@@ -338,31 +339,30 @@ class TrueTypeFont:
 
 
 def _iter_user_fonts() -> Iterator[tuple[str, str, str]]:
-    if not os.path.isdir(FONT_DIR):
+    font_dir = Path(FONT_DIR)
+    if not font_dir.is_dir():
         return
-    for entry in sorted(os.listdir(FONT_DIR)):
-        full = os.path.join(FONT_DIR, entry)
-        if os.path.isdir(full) and os.path.exists(os.path.join(full, "font.json")):
-            yield entry, full, "bitmap"
+    for entry in sorted(p.name for p in font_dir.iterdir()):
+        full = font_dir / entry
+        if full.is_dir() and (full / "font.json").exists():
+            yield entry, str(full), "bitmap"
         elif entry.lower().endswith(_TTF_EXT):
-            yield os.path.splitext(entry)[0], full, "truetype"
+            yield full.stem, str(full), "truetype"
 
 
 def _iter_system_fonts() -> Iterator[tuple[str, str, str]]:
     for directory in _SYSTEM_FONT_DIRS:
-        if not os.path.isdir(directory):
+        dir_path = Path(directory)
+        if not dir_path.is_dir():
             continue
         try:
-            entries = sorted(os.listdir(directory))
+            entries = sorted(p.name for p in dir_path.iterdir())
         except OSError:
             continue
         for entry in entries:
             if entry.lower().endswith(_TTF_EXT):
-                yield (
-                    os.path.splitext(entry)[0],
-                    os.path.join(directory, entry),
-                    "truetype",
-                )
+                full = Path(directory, entry)
+                yield full.stem, str(full), "truetype"
 
 
 def available_fonts() -> list[dict[str, str]]:
@@ -393,13 +393,11 @@ def load_font(spec: str) -> BitmapFont | TrueTypeFont:
     kind: str | None = None
 
     if os.path.sep in spec or spec.lower().endswith(_TTF_EXT):
-        expanded = os.path.expanduser(spec)
-        if os.path.isdir(expanded) and os.path.exists(
-            os.path.join(expanded, "font.json")
-        ):
-            path, kind = expanded, "bitmap"
-        elif os.path.isfile(expanded):
-            path, kind = expanded, "truetype"
+        expanded = Path(spec).expanduser()
+        if expanded.is_dir() and (expanded / "font.json").exists():
+            path, kind = str(expanded), "bitmap"
+        elif expanded.is_file():
+            path, kind = str(expanded), "truetype"
 
     if path is None:
         for entry in available_fonts():

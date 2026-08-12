@@ -446,7 +446,7 @@ def test_draw_text_tolerates_temp_file_cleanup_failure(
     real_unlink = os.unlink
 
     def flaky_unlink(path):
-        if path.endswith(".png"):
+        if str(path).endswith(".png"):
             raise OSError("simulated cleanup failure")
         real_unlink(path)
 

@@ -1,20 +1,32 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 
 
-@mcp.tool()
-async def add_frames(filename: str, count: int, duration_ms: int | None = None) -> str:
-    """Add multiple frames to a sprite and optionally set their duration.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        count: Number of frames to add
-        duration_ms: Optional duration for each new frame in milliseconds
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def add_frames(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    count: Annotated[int, Field(description="Number of frames to add")],
+    duration_ms: Annotated[
+        int | None,
+        Field(description="Optional duration for each new frame in milliseconds"),
+    ] = None,
+) -> str:
+    """Add multiple frames to a sprite and optionally set their duration."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     if count < 1:
@@ -45,15 +57,22 @@ async def add_frames(filename: str, count: int, duration_ms: int | None = None) 
     return f"Failed to add frames: {output}"
 
 
-@mcp.tool()
-async def set_frame_duration_all(filename: str, duration_ms: int) -> str:
-    """Set the duration of all frames in milliseconds.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        duration_ms: Duration in milliseconds
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_frame_duration_all(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    duration_ms: Annotated[
+        int, Field(description="Duration to apply to every frame, in milliseconds")
+    ],
+) -> str:
+    """Set the duration of all frames in milliseconds."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if duration_ms <= 0:
         return "Duration must be > 0"
@@ -78,18 +97,24 @@ async def set_frame_duration_all(filename: str, duration_ms: int) -> str:
     return f"Failed to set frame durations: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_layer_visibility(
-    filename: str, layer_name: str, visible: bool = True
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to target")],
+    visible: Annotated[
+        bool,
+        Field(description="Whether the layer should be shown (True) or hidden (False)"),
+    ] = True,
 ) -> str:
-    """Set layer visibility by name.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        visible: Whether the layer should be visible
-    """
-    if not os.path.exists(filename):
+    """Set layer visibility by name."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -116,16 +141,26 @@ async def set_layer_visibility(
     return f"Failed to set layer visibility: {output}"
 
 
-@mcp.tool()
-async def set_layer_opacity(filename: str, layer_name: str, opacity: int) -> str:
-    """Set layer opacity by name (0-255).
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        opacity: Opacity value 0-255
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_layer_opacity(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to target")],
+    opacity: Annotated[
+        int,
+        Field(
+            description="Opacity value from 0 (fully transparent) to 255 (fully opaque)"
+        ),
+    ],
+) -> str:
+    """Set layer opacity by name (0-255)."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if opacity < 0 or opacity > 255:
         return "Opacity must be between 0 and 255"
@@ -153,14 +188,19 @@ async def set_layer_opacity(filename: str, layer_name: str, opacity: int) -> str
     return f"Failed to set layer opacity: {output}"
 
 
-@mcp.tool()
-async def get_sprite_info(filename: str) -> str:
-    """Return sprite info as JSON string (size, color mode, frame durations, layers, tags).
-
-    Args:
-        filename: Name of the Aseprite file to inspect
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def get_sprite_info(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to inspect")],
+) -> str:
+    """Return sprite info as JSON string (size, color mode, frame durations, layers, tags)."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     # NOTE: batch mode discards Lua `return` values — output MUST go through print().
@@ -219,19 +259,33 @@ async def get_sprite_info(filename: str) -> str:
     return f"Failed to get sprite info: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def duplicate_frame_range(
-    filename: str, start_frame: int, end_frame: int, times: int = 1
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    start_frame: Annotated[
+        int,
+        Field(description="Starting frame index of the range to duplicate (1-based)"),
+    ],
+    end_frame: Annotated[
+        int,
+        Field(
+            description="Ending frame index of the range to duplicate (1-based, inclusive)"
+        ),
+    ],
+    times: Annotated[
+        int,
+        Field(description="Number of times to append the duplicated range to the end"),
+    ] = 1,
 ) -> str:
-    """Duplicate a frame range and append copies to the end.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        start_frame: Starting frame index (1-based)
-        end_frame: Ending frame index (1-based, inclusive)
-        times: Number of times to append the range (default: 1)
-    """
-    if not os.path.exists(filename):
+    """Duplicate a frame range and append copies to the end."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if times < 1:
         return "Times must be >= 1"
@@ -276,28 +330,42 @@ async def duplicate_frame_range(
     return f"Failed to duplicate frame range: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_cel_position(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    create_if_missing: bool = False,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cel")
+    ],
+    frame_index: Annotated[
+        int, Field(description="Frame index of the cel to move (1-based)")
+    ],
+    x: Annotated[int, Field(description="New X position of the cel, in pixels")],
+    y: Annotated[int, Field(description="New Y position of the cel, in pixels")],
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="If the cel does not exist yet, create it instead of failing"
+        ),
+    ] = False,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "When creating a missing cel, the frame index to copy its image from "
+                "(defaults to frame_index itself, producing an empty image if that also has no cel)"
+            )
+        ),
+    ] = None,
 ) -> str:
-    """Set a cel's position in a specific layer and frame.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        frame_index: Frame index starting at 1
-        x: X position in pixels
-        y: Y position in pixels
-        create_if_missing: Create the cel if it does not exist
-        source_frame_index: Optional frame to copy the cel image from
-    """
-    if not os.path.exists(filename):
+    """Set a cel's position in a specific layer and frame."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -351,34 +419,53 @@ async def set_cel_position(
     return f"Failed to set cel position: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def tween_cel_positions(
-    filename: str,
-    layer_name: str,
-    start_frame: int,
-    end_frame: int,
-    start_x: int,
-    start_y: int,
-    end_x: int,
-    end_y: int,
-    create_missing_cels: bool = False,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cels to move")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Starting frame index of the tween range (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(description="Ending frame index of the tween range (1-based, inclusive)"),
+    ],
+    start_x: Annotated[int, Field(description="X position at start_frame, in pixels")],
+    start_y: Annotated[int, Field(description="Y position at start_frame, in pixels")],
+    end_x: Annotated[int, Field(description="X position at end_frame, in pixels")],
+    end_y: Annotated[int, Field(description="Y position at end_frame, in pixels")],
+    create_missing_cels: Annotated[
+        bool,
+        Field(
+            description="Create a cel on frames in the range that don't already have one"
+        ),
+    ] = False,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "When creating a missing cel, the frame index to copy its image from "
+                "(defaults to start_frame)"
+            )
+        ),
+    ] = None,
 ) -> str:
     """Tween cel positions linearly across a frame range.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        start_frame: Starting frame index (1-based)
-        end_frame: Ending frame index (1-based, inclusive)
-        start_x: Starting X position in pixels
-        start_y: Starting Y position in pixels
-        end_x: Ending X position in pixels
-        end_y: Ending Y position in pixels
-        create_missing_cels: Create missing cels during tween
-        source_frame_index: Optional frame to copy the cel image from
+    Constant-speed interpolation between (start_x, start_y) and (end_x, end_y).
+    For eased motion (ease-in/out, smoothstep), use tween_cel_positions_eased
+    instead.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -440,21 +527,39 @@ async def tween_cel_positions(
     return f"Failed to tween cel positions: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def offset_cel_positions(
-    filename: str, layer_name: str, start_frame: int, end_frame: int, dx: int, dy: int
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cels to shift")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Starting frame index of the range to offset (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(
+            description="Ending frame index of the range to offset (1-based, inclusive)"
+        ),
+    ],
+    dx: Annotated[
+        int,
+        Field(description="Amount to add to each cel's current X position, in pixels"),
+    ],
+    dy: Annotated[
+        int,
+        Field(description="Amount to add to each cel's current Y position, in pixels"),
+    ],
 ) -> str:
-    """Offset cel positions by a delta across a frame range.
-
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        start_frame: Starting frame index (1-based)
-        end_frame: Ending frame index (1-based, inclusive)
-        dx: X delta in pixels
-        dy: Y delta in pixels
-    """
-    if not os.path.exists(filename):
+    """Offset cel positions by a delta across a frame range."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -493,20 +598,31 @@ async def offset_cel_positions(
     return f"Failed to offset cel positions: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def create_cel(
-    filename: str, layer_name: str, frame_index: int, x: int = 0, y: int = 0
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer to create the cel on")
+    ],
+    frame_index: Annotated[
+        int, Field(description="Frame index to create the cel at (1-based)")
+    ],
+    x: Annotated[int, Field(description="X position of the new cel, in pixels")] = 0,
+    y: Annotated[int, Field(description="Y position of the new cel, in pixels")] = 0,
 ) -> str:
     """Create an empty cel on a layer/frame.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        frame_index: Frame index starting at 1
-        x: X position in pixels
-        y: Y position in pixels
+    Does nothing if a cel already exists at that layer/frame — use
+    set_cel_position or copy_cel to modify an existing cel instead.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -539,10 +655,25 @@ async def create_cel(
     return f"Failed to create cel: {output}"
 
 
-@mcp.tool()
-async def clear_cel(filename: str, layer_name: str, frame_index: int) -> str:
-    """Delete a cel on a layer/frame."""
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def clear_cel(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cel")
+    ],
+    frame_index: Annotated[
+        int, Field(description="Frame index of the cel to delete (1-based)")
+    ],
+) -> str:
+    """Delete a cel on a layer/frame. A no-op if no cel exists there already."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -575,16 +706,40 @@ async def clear_cel(filename: str, layer_name: str, frame_index: int) -> str:
     return f"Failed to clear cel: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def copy_cel(
-    filename: str,
-    layer_name: str,
-    source_frame: int,
-    target_frame: int,
-    replace: bool = True,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing both cels")
+    ],
+    source_frame: Annotated[
+        int, Field(description="Frame index to copy the cel from (1-based)")
+    ],
+    target_frame: Annotated[
+        int, Field(description="Frame index to copy the cel to (1-based)")
+    ],
+    replace: Annotated[
+        bool,
+        Field(
+            description="If the target frame already has a cel, delete it and replace with the copy"
+        ),
+    ] = True,
 ) -> str:
-    """Copy a cel from one frame to another."""
-    if not os.path.exists(filename):
+    """Copy a cel from one frame to another.
+
+    Scope: a single layer, a single source frame, a single target frame.
+    For copying every layer's cel from one frame to another, use
+    copy_frame; for copying to a range of frames, use propagate_cels
+    (specific layers) or propagate_frame_to_range (all layers).
+    """
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -626,15 +781,39 @@ async def copy_cel(
     return f"Failed to copy cel: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def copy_frame(
-    filename: str,
-    source_frame: int,
-    target_frame: int | None = None,
-    overwrite: bool = True,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    source_frame: Annotated[
+        int, Field(description="Frame index to copy all layer cels from (1-based)")
+    ],
+    target_frame: Annotated[
+        int | None,
+        Field(
+            description="Frame index to copy into; if omitted, a new frame is appended and copied into"
+        ),
+    ] = None,
+    overwrite: Annotated[
+        bool,
+        Field(
+            description="If the target frame already has cels, delete them before copying in the new ones"
+        ),
+    ] = True,
 ) -> str:
-    """Copy all cels from a source frame to a target frame (or append)."""
-    if not os.path.exists(filename):
+    """Copy all cels from a source frame to a target frame (or append).
+
+    Scope: every layer, a single source frame, a single target frame (or a
+    freshly appended one). For a single layer only, use copy_cel; for a
+    range of target frames, use propagate_frame_to_range.
+    """
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     overwrite_flag = "true" if overwrite else "false"
@@ -688,24 +867,40 @@ async def copy_frame(
     return f"Failed to copy frame: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def propagate_frame_to_range(
-    filename: str,
-    source_frame: int,
-    start_frame: int,
-    end_frame: int,
-    overwrite: bool = True,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    source_frame: Annotated[
+        int, Field(description="Frame index to copy every layer's cel from (1-based)")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Start of the destination frame range (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(description="End of the destination frame range (1-based, inclusive)"),
+    ],
+    overwrite: Annotated[
+        bool,
+        Field(
+            description="Delete each destination frame's existing cels before copying in the new ones"
+        ),
+    ] = True,
 ) -> str:
     """Copy all layers from a source frame to a range of frames.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        source_frame: Frame index to copy from (1-based)
-        start_frame: Start frame index (1-based)
-        end_frame: End frame index (1-based, inclusive)
-        overwrite: Whether to overwrite existing cels (default: True)
+    Scope: every layer, a single source frame, a range of target frames.
+    For only specific layers, use propagate_cels; for a single target
+    frame, use copy_frame.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     overwrite_flag = "true" if overwrite else "false"
@@ -760,15 +955,41 @@ async def propagate_frame_to_range(
     return f"Failed to propagate frame range: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_tag(
-    filename: str, name: str, from_frame: int, to_frame: int, direction: str = "forward"
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    name: Annotated[
+        str,
+        Field(
+            description="Tag name; creates a new tag or updates the existing tag with this name"
+        ),
+    ],
+    from_frame: Annotated[
+        int, Field(description="First frame index covered by the tag (1-based)")
+    ],
+    to_frame: Annotated[
+        int,
+        Field(description="Last frame index covered by the tag (1-based, inclusive)"),
+    ],
+    direction: Annotated[
+        str,
+        Field(
+            description=(
+                "Playback direction for the tag: one of "
+                "'forward', 'reverse', 'pingpong', 'pingpong_reverse'"
+            )
+        ),
+    ] = "forward",
 ) -> str:
-    """Create or update an animation tag on the sprite.
-
-    direction: forward | reverse | pingpong | pingpong_reverse
-    """
-    if not os.path.exists(filename):
+    """Create or update an animation tag on the sprite."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     ani_dirs = {
@@ -814,16 +1035,46 @@ async def set_tag(
     return f"Failed to set tag: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_onion_skin(
-    filename: str,
-    enabled: bool = True,
-    before: int = 2,
-    after: int = 2,
-    opacity: int = 128,
+    filename: Annotated[
+        str, Field(description="Name of the Aseprite file to check exists")
+    ],
+    enabled: Annotated[
+        bool, Field(description="Whether onion skinning would be enabled")
+    ] = True,
+    before: Annotated[
+        int,
+        Field(
+            description="Number of previous frames that would be shown as onion skin"
+        ),
+    ] = 2,
+    after: Annotated[
+        int,
+        Field(
+            description="Number of following frames that would be shown as onion skin"
+        ),
+    ] = 2,
+    opacity: Annotated[
+        int, Field(description="Onion skin overlay opacity from 0 to 255")
+    ] = 128,
 ) -> str:
-    """Configure onion skin settings for Aseprite."""
-    if not os.path.exists(filename):
+    """Report the requested onion skin configuration without applying it.
+
+    Onion skin is a UI-only preference in Aseprite's batch (headless) mode:
+    there is no scriptable API to persist it, so this tool validates the
+    arguments and echoes them back but makes no change to the file. It
+    exists so callers get a clear, structured non-error instead of a
+    confusing failure when they ask for onion skin settings.
+    """
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if before < 0 or after < 0:
         return "Before/after must be >= 0"
@@ -836,26 +1087,41 @@ async def set_onion_skin(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def propagate_cels(
-    filename: str,
-    layer_names: list[str],
-    source_frame: int,
-    start_frame: int,
-    end_frame: int,
-    replace: bool = True,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_names: Annotated[
+        list[str], Field(description="Names of the layers whose cels should be copied")
+    ],
+    source_frame: Annotated[
+        int, Field(description="Frame index to copy each layer's cel from (1-based)")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Start of the destination frame range (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(description="End of the destination frame range (1-based, inclusive)"),
+    ],
+    replace: Annotated[
+        bool,
+        Field(description="Delete each destination cel before copying in the new one"),
+    ] = True,
 ) -> str:
     """Copy cels from a source frame to a range of frames for specific layers.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_names: List of layer names to copy
-        source_frame: Frame index to copy from (1-based)
-        start_frame: Start frame index (1-based)
-        end_frame: End frame index (1-based, inclusive)
-        replace: Whether to overwrite existing cels (default: True)
+    Scope: only the named layers, a single source frame, a range of target
+    frames. For all layers, use propagate_frame_to_range; for a single
+    target frame, use copy_cel.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not layer_names:
         return "Layer names list cannot be empty"
@@ -919,22 +1185,62 @@ async def propagate_cels(
     return f"Failed to propagate cels: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def tween_cel_positions_eased(
-    filename: str,
-    layer_name: str,
-    start_frame: int,
-    end_frame: int,
-    start_x: int,
-    start_y: int,
-    end_x: int,
-    end_y: int,
-    easing: str = "smoothstep",
-    create_missing_cels: bool = False,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cels to move")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Starting frame index of the tween range (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(description="Ending frame index of the tween range (1-based, inclusive)"),
+    ],
+    start_x: Annotated[int, Field(description="X position at start_frame, in pixels")],
+    start_y: Annotated[int, Field(description="Y position at start_frame, in pixels")],
+    end_x: Annotated[int, Field(description="X position at end_frame, in pixels")],
+    end_y: Annotated[int, Field(description="Y position at end_frame, in pixels")],
+    easing: Annotated[
+        str,
+        Field(
+            description=(
+                "Easing curve applied to the tween progress: one of "
+                "'linear', 'ease_in', 'ease_out', 'ease_in_out', 'smoothstep'"
+            )
+        ),
+    ] = "smoothstep",
+    create_missing_cels: Annotated[
+        bool,
+        Field(
+            description="Create a cel on frames in the range that don't already have one"
+        ),
+    ] = False,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "When creating a missing cel, the frame index to copy its image from "
+                "(defaults to start_frame)"
+            )
+        ),
+    ] = None,
 ) -> str:
-    """Tween cel positions with easing across a frame range."""
-    if not os.path.exists(filename):
+    """Tween cel positions with easing across a frame range.
+
+    Same as tween_cel_positions but with a non-linear easing curve applied
+    to the interpolation, for motion that accelerates/decelerates instead
+    of moving at constant speed.
+    """
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     easing = (easing or "smoothstep").lower().strip()
@@ -1017,21 +1323,67 @@ async def tween_cel_positions_eased(
     return f"Failed to tween cel positions with easing: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def oscillate_cel_positions(
-    filename: str,
-    layer_name: str,
-    start_frame: int,
-    end_frame: int,
-    amplitude_x: int = 0,
-    amplitude_y: int = 0,
-    cycles: float = 1.0,
-    phase_deg: float = 0.0,
-    create_missing_cels: bool = False,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cels to move")
+    ],
+    start_frame: Annotated[
+        int,
+        Field(description="Starting frame index of the range to oscillate (1-based)"),
+    ],
+    end_frame: Annotated[
+        int,
+        Field(
+            description="Ending frame index of the range to oscillate (1-based, inclusive)"
+        ),
+    ],
+    amplitude_x: Annotated[
+        int,
+        Field(
+            description="Peak horizontal displacement added to each cel's current X, in pixels"
+        ),
+    ] = 0,
+    amplitude_y: Annotated[
+        int,
+        Field(
+            description="Peak vertical displacement added to each cel's current Y, in pixels"
+        ),
+    ] = 0,
+    cycles: Annotated[
+        float,
+        Field(description="Number of full sine wave cycles spanned by the frame range"),
+    ] = 1.0,
+    phase_deg: Annotated[
+        float,
+        Field(description="Phase offset of the sine wave at start_frame, in degrees"),
+    ] = 0.0,
+    create_missing_cels: Annotated[
+        bool,
+        Field(
+            description="Create a cel on frames in the range that don't already have one"
+        ),
+    ] = False,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "When creating a missing cel, the frame index to copy its image from "
+                "(defaults to start_frame)"
+            )
+        ),
+    ] = None,
 ) -> str:
     """Oscillate cel positions across a frame range using a sine wave."""
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -1104,20 +1456,63 @@ async def oscillate_cel_positions(
     return f"Failed to oscillate cel positions: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def tween_cel_opacity_eased(
-    filename: str,
-    layer_name: str,
-    start_frame: int,
-    end_frame: int,
-    start_opacity: int,
-    end_opacity: int,
-    easing: str = "smoothstep",
-    create_missing_cels: bool = False,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cels to fade")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Starting frame index of the tween range (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(description="Ending frame index of the tween range (1-based, inclusive)"),
+    ],
+    start_opacity: Annotated[
+        int,
+        Field(
+            description="Opacity at start_frame, from 0 (transparent) to 255 (opaque)"
+        ),
+    ],
+    end_opacity: Annotated[
+        int,
+        Field(description="Opacity at end_frame, from 0 (transparent) to 255 (opaque)"),
+    ],
+    easing: Annotated[
+        str,
+        Field(
+            description=(
+                "Easing curve applied to the tween progress: one of "
+                "'linear', 'ease_in', 'ease_out', 'ease_in_out', 'smoothstep'"
+            )
+        ),
+    ] = "smoothstep",
+    create_missing_cels: Annotated[
+        bool,
+        Field(
+            description="Create a cel on frames in the range that don't already have one"
+        ),
+    ] = False,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "When creating a missing cel, the frame index to copy its image from "
+                "(defaults to start_frame)"
+            )
+        ),
+    ] = None,
 ) -> str:
     """Tween cel opacity with easing across a frame range."""
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if start_opacity < 0 or start_opacity > 255 or end_opacity < 0 or end_opacity > 255:
         return "Opacity must be between 0 and 255"
@@ -1203,22 +1598,84 @@ async def tween_cel_opacity_eased(
     return f"Failed to tween cel opacity with easing: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def tween_cel_scale_eased(
-    filename: str,
-    layer_name: str,
-    start_frame: int,
-    end_frame: int,
-    start_scale: float,
-    end_scale: float,
-    easing: str = "smoothstep",
-    anchor: str = "center",
-    replace: bool = True,
-    create_missing_cels: bool = True,
-    source_frame_index: int | None = None,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cels to scale")
+    ],
+    start_frame: Annotated[
+        int, Field(description="Starting frame index of the tween range (1-based)")
+    ],
+    end_frame: Annotated[
+        int,
+        Field(description="Ending frame index of the tween range (1-based, inclusive)"),
+    ],
+    start_scale: Annotated[
+        float,
+        Field(
+            description="Scale multiplier applied to the source cel at start_frame (1.0 = original size)"
+        ),
+    ],
+    end_scale: Annotated[
+        float,
+        Field(
+            description="Scale multiplier applied to the source cel at end_frame (1.0 = original size)"
+        ),
+    ],
+    easing: Annotated[
+        str,
+        Field(
+            description=(
+                "Easing curve applied to the tween progress: one of "
+                "'linear', 'ease_in', 'ease_out', 'ease_in_out', 'smoothstep'"
+            )
+        ),
+    ] = "smoothstep",
+    anchor: Annotated[
+        str,
+        Field(description="Point the scaling is anchored to: 'center' or 'topleft'"),
+    ] = "center",
+    replace: Annotated[
+        bool,
+        Field(
+            description="Delete each destination frame's existing cel before writing the scaled one"
+        ),
+    ] = True,
+    create_missing_cels: Annotated[
+        bool,
+        Field(
+            description="Create a cel on frames in the range that don't already have one"
+        ),
+    ] = True,
+    source_frame_index: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Frame index to read the source image and position from before scaling "
+                "(defaults to start_frame)"
+            )
+        ),
+    ] = None,
 ) -> str:
-    """Tween cel scale with easing across a frame range."""
-    if not os.path.exists(filename):
+    """Tween cel scale with easing across a frame range.
+
+    Reads the source cel's image once, then on every frame in the range
+    (by default including the source frame itself) deletes any existing
+    cel and writes a resized copy at the eased scale for that frame — so
+    with the default replace=True and create_missing_cels=True this
+    overwrites every cel in start_frame..end_frame, and re-running it is
+    NOT a no-op: each call rescales relative to whatever image is on the
+    source frame at call time.
+    """
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if start_scale <= 0 or end_scale <= 0:
         return "Scale must be > 0"
@@ -1328,15 +1785,22 @@ async def tween_cel_scale_eased(
     return f"Failed to tween cel scale with easing: {output}"
 
 
-@mcp.tool()
-async def delete_frame(filename: str, frame_index: int) -> str:
-    """Delete a frame by index.
-
-    Args:
-        filename: Aseprite file to modify
-        frame_index: Frame index starting at 1
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def delete_frame(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    frame_index: Annotated[
+        int, Field(description="Index of the frame to delete (1-based)")
+    ],
+) -> str:
+    """Delete a frame by index."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = f"""
@@ -1361,15 +1825,20 @@ async def delete_frame(filename: str, frame_index: int) -> str:
     return f"Failed to delete frame: {output}"
 
 
-@mcp.tool()
-async def delete_tag(filename: str, name: str) -> str:
-    """Delete an animation tag by name.
-
-    Args:
-        filename: Aseprite file to modify
-        name: Tag name to delete
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def delete_tag(
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    name: Annotated[str, Field(description="Name of the tag to delete")],
+) -> str:
+    """Delete an animation tag by name."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_name = lua_escape(name)
@@ -1397,22 +1866,31 @@ async def delete_tag(filename: str, name: str) -> str:
     return f"Failed to delete tag: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_cel_opacity(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    opacity: int,
+    filename: Annotated[str, Field(description="Name of the Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Name of the layer containing the cel")
+    ],
+    frame_index: Annotated[
+        int, Field(description="Frame index of the cel to modify (1-based)")
+    ],
+    opacity: Annotated[
+        int,
+        Field(
+            description="Opacity to set, from 0 (fully transparent) to 255 (fully opaque)"
+        ),
+    ],
 ) -> str:
-    """Set the opacity of a single cel (0-255).
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer containing the cel
-        frame_index: Frame index starting at 1
-        opacity: Opacity 0 (transparent) to 255 (opaque)
-    """
-    if not os.path.exists(filename):
+    """Set the opacity of a single cel (0-255)."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not (0 <= opacity <= 255):
         return "Opacity must be between 0 and 255"

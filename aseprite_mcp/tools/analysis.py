@@ -1,8 +1,13 @@
 import json
 import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
+from ..core.paths import path_exists
 
 # Render a frame of the (cloned, flattened) sprite into a canvas-sized
 # RGB image. Used by the analysis tools so layer offsets and trimmed
@@ -27,15 +32,30 @@ end
 """
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def render_onion_skin(
-    filename: str,
-    frame_index: int,
-    output_filename: str,
-    before: int = 1,
-    after: int = 1,
-    scale: int = 4,
-    ghost_opacity: int = 100,
+    filename: Annotated[str, Field(description="Aseprite file to read")],
+    frame_index: Annotated[int, Field(description="Frame to render, starting at 1")],
+    output_filename: Annotated[str, Field(description="Output PNG path")],
+    before: Annotated[
+        int, Field(description="Number of previous frames to ghost (default 1)")
+    ] = 1,
+    after: Annotated[
+        int, Field(description="Number of following frames to ghost (default 1)")
+    ] = 1,
+    scale: Annotated[
+        int, Field(description="Integer nearest-neighbor scale factor (default 4)")
+    ] = 4,
+    ghost_opacity: Annotated[
+        int, Field(description="Opacity of ghost frames, 0-255 (default 100)")
+    ] = 100,
 ) -> str:
     """Render a frame with neighboring frames as translucent onion-skin ghosts.
 
@@ -43,18 +63,10 @@ async def render_onion_skin(
     the surrounding frames — the batch-mode equivalent of Aseprite's
     onion skinning. Essential for checking motion continuity while
     animating: export it, open the PNG, and verify the in-between
-    positions line up.
-
-    Args:
-        filename: Aseprite file to read
-        frame_index: Frame to render, starting at 1
-        output_filename: Output PNG path
-        before: Number of previous frames to ghost (default 1)
-        after: Number of following frames to ghost (default 1)
-        scale: Integer nearest-neighbor scale factor (default 4)
-        ghost_opacity: Opacity of ghost frames, 0-255 (default 100)
+    positions line up. The source .aseprite file is only read, never
+    modified; the render is written to output_filename.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if scale < 1 or scale > 64:
         return "scale must be between 1 and 64"
@@ -129,24 +141,31 @@ async def render_onion_skin(
     return f"Failed to render onion skin: {output}"
 
 
-@mcp.tool()
-async def compare_frames(filename: str, frame_a: int, frame_b: int) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def compare_frames(
+    filename: Annotated[str, Field(description="Aseprite file to read")],
+    frame_a: Annotated[int, Field(description="First frame index, starting at 1")],
+    frame_b: Annotated[int, Field(description="Second frame index, starting at 1")],
+) -> str:
     """Compare two frames and report how much they differ.
 
     Flattens the sprite (non-destructively) and diffs the two frames
     pixel by pixel. Use while animating to confirm a frame actually
     changed, or that it did not change too much.
 
-    Args:
-        filename: Aseprite file to read
-        frame_a: First frame index, starting at 1
-        frame_b: Second frame index, starting at 1
-
     Returns:
         JSON with changed pixel count, total pixels, percent changed,
         and the bounding box of the changed region.
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = f"""
@@ -226,24 +245,35 @@ async def compare_frames(filename: str, frame_a: int, frame_b: int) -> str:
     return "No diff data returned"
 
 
-@mcp.tool()
-async def get_color_stats(filename: str, frame_index: int = 1, top: int = 16) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def get_color_stats(
+    filename: Annotated[str, Field(description="Aseprite file to read")],
+    frame_index: Annotated[
+        int, Field(description="Frame to analyze, starting at 1 (default 1)")
+    ] = 1,
+    top: Annotated[
+        int, Field(description="How many of the most-used colors to list (default 16)")
+    ] = 16,
+) -> str:
     """Report the colors used in a frame and how often each appears.
 
     Flattens the sprite (non-destructively) and histograms the frame.
     Use to check palette discipline: too many near-duplicate colors is
     a common pixel-art mistake.
 
-    Args:
-        filename: Aseprite file to read
-        frame_index: Frame to analyze, starting at 1 (default 1)
-        top: How many of the most-used colors to list (default 16)
-
     Returns:
         JSON with unique color count, opaque pixel count, and the top
         colors with usage counts.
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if top < 1:
         return "top must be >= 1"

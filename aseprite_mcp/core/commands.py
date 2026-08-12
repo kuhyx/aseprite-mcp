@@ -1,10 +1,11 @@
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
 import dotenv
 
-_ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+_ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 dotenv.load_dotenv(dotenv_path=_ENV_PATH)
 
 
@@ -77,7 +78,7 @@ class AsepriteCommand:
 
         try:
             args = ["--batch"]
-            if filename and os.path.exists(filename):
+            if filename and Path(filename).exists():
                 args.append(filename)
             args.extend(["--script", script_path])
 
@@ -85,7 +86,7 @@ class AsepriteCommand:
             return success, output
         finally:
             # Clean up the temporary script file
-            os.remove(script_path)
+            Path(script_path).unlink()
 
     @staticmethod
     def execute_lua_script_checked(

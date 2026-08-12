@@ -1,8 +1,12 @@
 import json
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
+from ..core.paths import path_exists
 
 _FIND_SLICE = """
 local function find_slice(spr, name)
@@ -14,26 +18,28 @@ end
 """
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def create_slice(
-    filename: str,
-    name: str,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    name: Annotated[str, Field(description="Slice name")],
+    x: Annotated[int, Field(description="Left edge of the slice")],
+    y: Annotated[int, Field(description="Top edge of the slice")],
+    width: Annotated[int, Field(description="Slice width")],
+    height: Annotated[int, Field(description="Slice height")],
 ) -> str:
     """Create a named slice (a rectangular region usable by game engines).
 
-    Args:
-        filename: Aseprite file to modify
-        name: Slice name
-        x: Left edge of the slice
-        y: Top edge of the slice
-        width: Slice width
-        height: Slice height
+    Fails if a slice with the same name already exists; each call creates
+    a new slice rather than updating one.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -63,29 +69,31 @@ async def create_slice(
     return f"Failed to create slice: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def set_slice_center(
-    filename: str,
-    name: str,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    name: Annotated[str, Field(description="Slice name")],
+    x: Annotated[
+        int, Field(description="Center-rect left edge, relative to the slice")
+    ],
+    y: Annotated[int, Field(description="Center-rect top edge, relative to the slice")],
+    width: Annotated[int, Field(description="Center-rect width")],
+    height: Annotated[int, Field(description="Center-rect height")],
 ) -> str:
     """Set a slice's 9-patch center rectangle (relative to the slice origin).
 
     The center defines the stretchable region for 9-patch scaling in
-    game engines.
-
-    Args:
-        filename: Aseprite file to modify
-        name: Slice name
-        x: Center-rect left edge, relative to the slice
-        y: Center-rect top edge, relative to the slice
-        width: Center-rect width
-        height: Center-rect height
+    game engines. Calling this again with the same values leaves the
+    slice unchanged.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -113,17 +121,27 @@ async def set_slice_center(
     return f"Failed to set slice center: {output}"
 
 
-@mcp.tool()
-async def set_slice_pivot(filename: str, name: str, x: int, y: int) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_slice_pivot(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    name: Annotated[str, Field(description="Slice name")],
+    x: Annotated[int, Field(description="Pivot x, relative to the slice")],
+    y: Annotated[int, Field(description="Pivot y, relative to the slice")],
+) -> str:
     """Set a slice's pivot point (relative to the slice origin).
 
-    Args:
-        filename: Aseprite file to modify
-        name: Slice name
-        x: Pivot x, relative to the slice
-        y: Pivot y, relative to the slice
+    The pivot is the anchor game engines use when positioning or
+    rotating the slice. Calling this again with the same values leaves
+    the slice unchanged.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_name = lua_escape(name)
@@ -149,14 +167,27 @@ async def set_slice_pivot(filename: str, name: str, x: int, y: int) -> str:
     return f"Failed to set slice pivot: {output}"
 
 
-@mcp.tool()
-async def list_slices(filename: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def list_slices(
+    filename: Annotated[str, Field(description="Aseprite file to inspect")],
+) -> str:
     """List all slices with their bounds, 9-patch centers, and pivots.
+
+    Use this to discover existing slice names/bounds before editing or
+    referencing them from other tools.
 
     Returns:
         JSON array of {name, x, y, width, height, center?, pivot?}.
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     # Emit one JSON object per slice (name via Lua %q) instead of a
@@ -195,15 +226,24 @@ async def list_slices(filename: str) -> str:
     return json.dumps(slices)
 
 
-@mcp.tool()
-async def delete_slice(filename: str, name: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def delete_slice(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    name: Annotated[str, Field(description="Slice name to delete")],
+) -> str:
     """Delete a slice by name.
 
-    Args:
-        filename: Aseprite file to modify
-        name: Slice name to delete
+    Deleting a slice that does not exist leaves the sprite unchanged
+    (reported as an error), so repeated calls are idempotent.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_name = lua_escape(name)

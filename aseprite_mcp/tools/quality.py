@@ -1,7 +1,11 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
+from ..core.paths import path_exists
 
 
 def _parse_layer_frame_ranges(layer_frame_ranges: list[str] | None) -> str:
@@ -55,15 +59,35 @@ def _parse_overlap_pairs(overlap_pairs: list[str] | None) -> str:
     return "{" + ",".join([f'{{"{a}","{b}"}}' for a, b in pairs]) + "}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def ensure_layers_present(
-    filename: str,
-    layer_names: list[str],
-    start_frame: int = 1,
-    end_frame: int | None = None,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_names: Annotated[
+        list[str],
+        Field(description="Layer names that must have a cel on every frame in range"),
+    ],
+    start_frame: Annotated[
+        int, Field(description="First frame (1-based) to check")
+    ] = 1,
+    end_frame: Annotated[
+        int | None,
+        Field(description="Last frame (1-based) to check; omit for the last frame"),
+    ] = None,
 ) -> str:
-    """Ensure cels exist for layers across a frame range."""
-    if not os.path.exists(filename):
+    """Ensure cels exist for layers across a frame range.
+
+    Creates an empty cel on any frame in the range where a named layer
+    is missing one, so downstream tools relying on per-frame cel
+    presence never hit a nil cel.
+    """
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not layer_names:
         return "Layer names list cannot be empty"
@@ -126,18 +150,37 @@ async def ensure_layers_present(
     return f"Failed to ensure cels: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def validate_scene(
-    filename: str,
-    required_layers: list[str],
-    start_frame: int = 1,
-    end_frame: int | None = None,
+    filename: Annotated[str, Field(description="Aseprite file to inspect")],
+    required_layers: Annotated[
+        list[str],
+        Field(
+            description="Layer names that must exist with a cel on every frame in range"
+        ),
+    ],
+    start_frame: Annotated[
+        int, Field(description="First frame (1-based) to check")
+    ] = 1,
+    end_frame: Annotated[
+        int | None,
+        Field(description="Last frame (1-based) to check; omit for the last frame"),
+    ] = None,
 ) -> str:
     """Validate presence of layers and cels across a frame range.
 
-    Returns JSON with missing layers and missing cels.
+    Returns:
+        JSON with missing layers and missing cels.
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not required_layers:
         return "Required layers list cannot be empty"
@@ -214,26 +257,71 @@ async def validate_scene(
     return f"Failed to validate scene: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def audit_animation(
-    filename: str,
-    start_frame: int = 1,
-    end_frame: int | None = None,
-    layer_names: list[str] | None = None,
-    overlap_pairs: list[str] | None = None,
-    layer_frame_ranges: list[str] | None = None,
-    report_cels: bool = False,
-    report_bounds: bool = False,
-    max_overlaps: int = 200,
-    max_out_of_range: int = 200,
+    filename: Annotated[str, Field(description="Aseprite file to inspect")],
+    start_frame: Annotated[
+        int, Field(description="First frame (1-based) to audit")
+    ] = 1,
+    end_frame: Annotated[
+        int | None,
+        Field(description="Last frame (1-based) to audit; omit for the last frame"),
+    ] = None,
+    layer_names: Annotated[
+        list[str] | None,
+        Field(description="Layers to audit; omit to audit all non-group layers"),
+    ] = None,
+    overlap_pairs: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Layer name pairs to check for bounding-box overlap, e.g. "
+                '["layerA,layerB", "layerC:layerD"]'
+            )
+        ),
+    ] = None,
+    layer_frame_ranges: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Expected active-frame ranges per layer, e.g. "
+                '["layer:1-8,17-24", "clouds:1-12"]; frames outside these '
+                "ranges are reported as out-of-range activity"
+            )
+        ),
+    ] = None,
+    report_cels: Annotated[
+        bool,
+        Field(description="Include a per-frame list of cels present in the output"),
+    ] = False,
+    report_bounds: Annotated[
+        bool, Field(description="Include pixel bounding boxes in overlap/cel entries")
+    ] = False,
+    max_overlaps: Annotated[
+        int,
+        Field(description="Maximum number of overlap entries to include in the output"),
+    ] = 200,
+    max_out_of_range: Annotated[
+        int,
+        Field(
+            description="Maximum number of out-of-range entries to include in the output"
+        ),
+    ] = 200,
 ) -> str:
     """Audit animation frames for overlaps and out-of-range layer activity.
 
-    overlap_pairs format: ["layerA,layerB", "layerC:layerD"]
-    layer_frame_ranges format: ["layer:1-8,17-24", "clouds:1-12"]
-    Returns JSON for AI consumption (summary, overlaps, out_of_range, optional cels).
+    Returns:
+        JSON for AI consumption (summary, overlaps, out_of_range, optional cels).
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if start_frame < 1:
         return "Start frame must be >= 1"
@@ -453,32 +541,99 @@ async def audit_animation(
     return f"Failed to audit animation: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def animation_sanitize(
-    filename: str,
-    start_frame: int = 1,
-    end_frame: int | None = None,
-    layer_names: list[str] | None = None,
-    layer_order: list[str] | None = None,
-    layer_frame_ranges: list[str] | None = None,
-    ensure_layers: list[str] | None = None,
-    overlap_pairs: list[str] | None = None,
-    report_bounds: bool = False,
-    max_overlaps: int = 200,
-    ignore_full_canvas_overlaps: bool = True,
-    out_of_range_action: str = "set_opacity_zero",
-    out_of_range_opacity: int = 0,
-    report_only: bool = False,
-    include_stats: bool = True,
+    filename: Annotated[str, Field(description="Aseprite file to inspect or modify")],
+    start_frame: Annotated[
+        int, Field(description="First frame (1-based) to process")
+    ] = 1,
+    end_frame: Annotated[
+        int | None,
+        Field(description="Last frame (1-based) to process; omit for the last frame"),
+    ] = None,
+    layer_names: Annotated[
+        list[str] | None,
+        Field(description="Layers to process; omit to process all non-group layers"),
+    ] = None,
+    layer_order: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Desired top-level layer stacking order by name; layers not "
+                "listed keep their relative order after the listed ones"
+            )
+        ),
+    ] = None,
+    layer_frame_ranges: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Expected active-frame ranges per layer, e.g. "
+                '["layer:1-8,17-24", "clouds:1-12"]'
+            )
+        ),
+    ] = None,
+    ensure_layers: Annotated[
+        list[str] | None,
+        Field(description="Layer names that must have a cel on every frame in range"),
+    ] = None,
+    overlap_pairs: Annotated[
+        list[str] | None,
+        Field(
+            description='Layer name pairs to check for overlap, e.g. ["layerA,layerB"]'
+        ),
+    ] = None,
+    report_bounds: Annotated[
+        bool, Field(description="Include pixel bounding boxes in overlap entries")
+    ] = False,
+    max_overlaps: Annotated[
+        int,
+        Field(description="Maximum number of overlap entries to include in the output"),
+    ] = 200,
+    ignore_full_canvas_overlaps: Annotated[
+        bool,
+        Field(description="Skip overlap checks when either cel covers the full canvas"),
+    ] = True,
+    out_of_range_action: Annotated[
+        str,
+        Field(
+            description=(
+                'Action to take on out-of-range cels: "set_opacity_zero", '
+                '"delete_cels", or "none"'
+            )
+        ),
+    ] = "set_opacity_zero",
+    out_of_range_opacity: Annotated[
+        int,
+        Field(
+            description="Opacity (0-255) applied when out_of_range_action is set_opacity_zero"
+        ),
+    ] = 0,
+    report_only: Annotated[
+        bool, Field(description="Analyze and report without applying any fixes")
+    ] = False,
+    include_stats: Annotated[
+        bool, Field(description="Include per-layer statistics in the output")
+    ] = True,
 ) -> str:
     """Normalize animation consistency and optionally apply fixes.
 
-    layer_frame_ranges format: ["layer:1-8,17-24", "clouds:1-12"]
-    out_of_range_action: "set_opacity_zero", "delete_cels", "none"
-    ignore_full_canvas_overlaps: skip overlap checks when a cel is full canvas
-    Returns JSON for AI consumption (summary, layer_stats, alerts, overlaps).
+    Checks and fixes layer stacking order, missing cels, and cels active
+    outside their expected frame ranges in one pass. Set report_only=True
+    to see what would change without modifying the file.
+
+    Returns:
+        JSON for AI consumption (summary, layer_stats, alerts, overlaps).
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if start_frame < 1:
         return "Start frame must be >= 1"

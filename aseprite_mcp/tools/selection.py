@@ -1,9 +1,13 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
+from ..core.paths import path_exists
 
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
@@ -12,36 +16,33 @@ def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     return rgba[:3] if rgba else None
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def move_region(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    dest_x: int,
-    dest_y: int,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to operate on")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    x: Annotated[int, Field(description="Left edge of the source region")],
+    y: Annotated[int, Field(description="Top edge of the source region")],
+    width: Annotated[int, Field(description="Region width")],
+    height: Annotated[int, Field(description="Region height")],
+    dest_x: Annotated[int, Field(description="New left edge for the region")],
+    dest_y: Annotated[int, Field(description="New top edge for the region")],
 ) -> str:
     """Cut a rectangular region of pixels and paste it at a new position.
 
-    Coordinates are sprite-global. The source area is left transparent.
-    Pixels moved outside the canvas are discarded. Fully transparent
-    source pixels do not overwrite destination pixels.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to operate on
-        frame_index: Frame index starting at 1
-        x: Left edge of the source region
-        y: Top edge of the source region
-        width: Region width
-        height: Region height
-        dest_x: New left edge for the region
-        dest_y: New top edge for the region
+    Coordinates are sprite-global. The source area is left transparent,
+    which destroys whatever was there if the destination does not fully
+    cover it again. Pixels moved outside the canvas are discarded. Fully
+    transparent source pixels do not overwrite destination pixels.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -103,39 +104,38 @@ async def move_region(
     return f"Failed to move region: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def copy_region(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    dest_x: int,
-    dest_y: int,
-    target_layer_name: str = "",
-    target_frame_index: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Source layer")],
+    frame_index: Annotated[int, Field(description="Source frame index starting at 1")],
+    x: Annotated[int, Field(description="Left edge of the source region")],
+    y: Annotated[int, Field(description="Top edge of the source region")],
+    width: Annotated[int, Field(description="Region width")],
+    height: Annotated[int, Field(description="Region height")],
+    dest_x: Annotated[int, Field(description="Left edge of the destination")],
+    dest_y: Annotated[int, Field(description="Top edge of the destination")],
+    target_layer_name: Annotated[
+        str, Field(description="Destination layer (default: same as source)")
+    ] = "",
+    target_frame_index: Annotated[
+        int, Field(description="Destination frame (default: same as source)")
+    ] = 0,
 ) -> str:
     """Copy a rectangular region of pixels to another position, layer, or frame.
 
     Coordinates are sprite-global. Fully transparent source pixels do not
     overwrite destination pixels. The destination cel is created when missing.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Source layer
-        frame_index: Source frame index starting at 1
-        x: Left edge of the source region
-        y: Top edge of the source region
-        width: Region width
-        height: Region height
-        dest_x: Left edge of the destination
-        dest_y: Top edge of the destination
-        target_layer_name: Destination layer (default: same as source)
-        target_frame_index: Destination frame (default: same as source)
+    Repeating the same call reproduces the same end state.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -205,30 +205,29 @@ async def copy_region(
     return f"Failed to copy region: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def erase_region(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to operate on")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    x: Annotated[int, Field(description="Left edge of the region")],
+    y: Annotated[int, Field(description="Top edge of the region")],
+    width: Annotated[int, Field(description="Region width")],
+    height: Annotated[int, Field(description="Region height")],
 ) -> str:
     """Erase (make transparent) a rectangular region of pixels.
 
-    Coordinates are sprite-global.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to operate on
-        frame_index: Frame index starting at 1
-        x: Left edge of the region
-        y: Top edge of the region
-        width: Region width
-        height: Region height
+    Coordinates are sprite-global. Erasing the same region again leaves
+    it transparent, so the call is idempotent.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -270,24 +269,30 @@ async def erase_region(
     return f"Failed to erase region: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def erase_color(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    color: str,
-    tolerance: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to operate on")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    color: Annotated[str, Field(description='Hex color to erase, e.g. "#FF00FF"')],
+    tolerance: Annotated[
+        int, Field(description="Per-channel tolerance 0-255 (default 0 = exact match)")
+    ] = 0,
 ) -> str:
     """Make all pixels of a given color transparent (like a magic eraser).
 
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to operate on
-        frame_index: Frame index starting at 1
-        color: Hex color to erase, e.g. "#FF00FF"
-        tolerance: Per-channel tolerance 0-255 (default 0 = exact match)
+    Useful for stripping a solid background color out of imported art.
+    Running it again after the color is gone is a no-op, so the call is
+    idempotent.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)

@@ -1,8 +1,12 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
+from ..core.paths import path_exists
 
 _BLEND_MODES = {
     "normal": "BlendMode.NORMAL",
@@ -27,15 +31,20 @@ _BLEND_MODES = {
 }
 
 
-@mcp.tool()
-async def delete_layer(filename: str, layer_name: str) -> str:
-    """Delete a layer by name.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Name of the layer to delete
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def delete_layer(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to delete")],
+) -> str:
+    """Delete a layer by name."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer = lua_escape(layer_name)
@@ -62,16 +71,21 @@ async def delete_layer(filename: str, layer_name: str) -> str:
     return f"Failed to delete layer: {output}"
 
 
-@mcp.tool()
-async def rename_layer(filename: str, layer_name: str, new_name: str) -> str:
-    """Rename a layer.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Current layer name
-        new_name: New layer name
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def rename_layer(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Current layer name")],
+    new_name: Annotated[str, Field(description="New layer name")],
+) -> str:
+    """Rename a layer."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not new_name:
         return "New name cannot be empty"
@@ -100,24 +114,43 @@ async def rename_layer(filename: str, layer_name: str, new_name: str) -> str:
     return f"Failed to rename layer: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def duplicate_layer(
-    filename: str, layer_name: str, new_name: str = "", group: str = ""
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str,
+        Field(
+            description=('Layer to duplicate, by name or "group/subgroup/layer" path')
+        ),
+    ],
+    new_name: Annotated[
+        str,
+        Field(description='Name for the copy (default: "<layer_name> copy")'),
+    ] = "",
+    group: Annotated[
+        str,
+        Field(
+            description=(
+                "Optional group to place the copy inside, by name or "
+                '"group/subgroup" path (default: directly above the source)'
+            )
+        ),
+    ] = "",
 ) -> str:
     """Duplicate a layer with all its cels across every frame.
 
     The copy inherits the source's opacity and blend mode. By default it is
     placed directly above the source layer; pass `group` to place it inside a
     group instead.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to duplicate, by name or "group/subgroup/layer" path
-        new_name: Name for the copy (default: "<layer_name> copy")
-        group: Optional group to place the copy inside, by name or
-            "group/subgroup" path (default: directly above the source)
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     final_name = new_name or f"{layer_name} copy"
@@ -171,16 +204,24 @@ async def duplicate_layer(
     return f"Failed to duplicate layer: {output}"
 
 
-@mcp.tool()
-async def reorder_layer(filename: str, layer_name: str, position: int) -> str:
-    """Move a layer to a new position in the layer stack.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to move
-        position: Target stack position, 1-based where 1 is the bottom layer
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def reorder_layer(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to move")],
+    position: Annotated[
+        int,
+        Field(description="Target stack position, 1-based where 1 is the bottom layer"),
+    ],
+) -> str:
+    """Move a layer to a new position in the layer stack."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if position < 1:
         return "Position must be >= 1"
@@ -209,19 +250,31 @@ async def reorder_layer(filename: str, layer_name: str, position: int) -> str:
     return f"Failed to reorder layer: {output}"
 
 
-@mcp.tool()
-async def set_layer_blend_mode(filename: str, layer_name: str, mode: str) -> str:
-    """Set a layer's blend mode.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to modify
-        mode: One of: normal, darken, multiply, color_burn, lighten, screen,
-            color_dodge, addition, overlay, soft_light, hard_light,
-            difference, exclusion, subtract, divide, hue, saturation,
-            color, luminosity
-    """
-    if not os.path.exists(filename):
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def set_layer_blend_mode(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to modify")],
+    mode: Annotated[
+        str,
+        Field(
+            description=(
+                "One of: normal, darken, multiply, color_burn, lighten, screen, "
+                "color_dodge, addition, overlay, soft_light, hard_light, "
+                "difference, exclusion, subtract, divide, hue, saturation, "
+                "color, luminosity"
+            )
+        ),
+    ],
+) -> str:
+    """Set a layer's blend mode."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     blend = _BLEND_MODES.get(mode.lower())
@@ -251,15 +304,27 @@ async def set_layer_blend_mode(filename: str, layer_name: str, mode: str) -> str
     return f"Failed to set blend mode: {output}"
 
 
-@mcp.tool()
-async def merge_layer_down(filename: str, layer_name: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def merge_layer_down(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str,
+        Field(description="Layer to merge down (must not be the bottom layer)"),
+    ],
+) -> str:
     """Merge a layer into the layer directly below it.
 
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to merge down (must not be the bottom layer)
+    The source layer is destroyed: its pixels are composited into the layer
+    below and only the destination layer remains.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer = lua_escape(layer_name)
@@ -285,14 +350,23 @@ async def merge_layer_down(filename: str, layer_name: str) -> str:
     return f"Failed to merge layer down: {output}"
 
 
-@mcp.tool()
-async def flatten_sprite(filename: str) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def flatten_sprite(
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+) -> str:
     """Flatten all layers into a single layer.
 
-    Args:
-        filename: Aseprite file to modify
+    Destroys the layer structure: all layers are merged down into one,
+    discarding per-layer names, blend modes, and grouping.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = """

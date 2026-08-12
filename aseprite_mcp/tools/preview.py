@@ -4,12 +4,18 @@ import signal
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
+from ..core.paths import path_exists, path_is_dir
 
 
 def _pid_path(port: int) -> str:
-    return os.path.join(tempfile.gettempdir(), f"aseprite_mcp_preview_{port}.pid")
+    return str(Path(tempfile.gettempdir()) / f"aseprite_mcp_preview_{port}.pid")
 
 
 def _pid_is_running(pid: int) -> bool:
@@ -29,12 +35,12 @@ def _pid_is_running(pid: int) -> bool:
 
 
 def _read_pid_file(pid_file: str) -> int:
-    with open(pid_file, encoding="utf-8") as f:
+    with Path(pid_file).open(encoding="utf-8") as f:
         return int(f.read().strip())
 
 
 def _write_pid_file(pid_file: str, pid: int) -> None:
-    with open(pid_file, "w", encoding="utf-8") as f:
+    with Path(pid_file).open("w", encoding="utf-8") as f:
         f.write(str(pid))
 
 
@@ -72,26 +78,35 @@ def _kill_process(pid: int) -> None:
         os.kill(pid, signal.SIGTERM)
 
 
-@mcp.tool()
-async def start_preview_server(directory: str, port: int = 8000) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def start_preview_server(
+    directory: Annotated[str, Field(description="Directory to serve")],
+    port: Annotated[int, Field(description="Port to bind (default 8000)")] = 8000,
+) -> str:
     """Start a simple HTTP server to preview exported sprites.
 
-    Args:
-        directory: Directory to serve
-        port: Port to bind (default 8000)
+    Spawns a new background process bound to the given port; use
+    stop_preview_server to shut it down when finished.
     """
-    if not os.path.isdir(directory):
+    if not await path_is_dir(directory):
         return f"Directory {directory} not found"
 
     pid_file = _pid_path(port)
-    if os.path.exists(pid_file):
+    if await path_exists(pid_file):
         try:
             pid = await asyncio.to_thread(_read_pid_file, pid_file)
             if await asyncio.to_thread(_pid_is_running, pid):
                 return f"Preview server may already be running on port {port}"
         except (OSError, ValueError):
             pass
-        os.remove(pid_file)
+        await asyncio.to_thread(Path(pid_file).unlink)
 
     args = [sys.executable, "-m", "http.server", str(port), "--directory", directory]
     proc = await asyncio.to_thread(_spawn_server, args, directory)
@@ -100,15 +115,24 @@ async def start_preview_server(directory: str, port: int = 8000) -> str:
     return f"Preview server started: http://localhost:{port}/"
 
 
-@mcp.tool()
-async def stop_preview_server(port: int = 8000) -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def stop_preview_server(
+    port: Annotated[int, Field(description="Port to stop (default 8000)")] = 8000,
+) -> str:
     """Stop the preview HTTP server for a given port.
 
-    Args:
-        port: Port to stop (default 8000)
+    Kills the background process started by start_preview_server. Calling
+    this again after the server is already stopped is a no-op.
     """
     pid_file = _pid_path(port)
-    if not os.path.exists(pid_file):
+    if not await path_exists(pid_file):
         return f"No preview server PID found for port {port}"
 
     pid = await asyncio.to_thread(_read_pid_file, pid_file)
@@ -116,6 +140,6 @@ async def stop_preview_server(port: int = 8000) -> str:
     try:
         await asyncio.to_thread(_kill_process, pid)
     finally:
-        os.remove(pid_file)
+        await asyncio.to_thread(Path(pid_file).unlink)
 
     return f"Preview server stopped on port {port}"

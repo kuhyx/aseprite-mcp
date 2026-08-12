@@ -1,11 +1,28 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand
+from ..core.paths import path_exists
 
 
-@mcp.tool()
-async def run_lua_script(script: str, filename: str = "") -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def run_lua_script(
+    script: Annotated[str, Field(description="Lua source code to execute")],
+    filename: Annotated[
+        str,
+        Field(description="Optional Aseprite file to open before running"),
+    ] = "",
+) -> str:
     """Execute arbitrary Aseprite Lua code in batch mode (escape hatch).
 
     Use this when no dedicated tool covers what you need. The full API
@@ -24,14 +41,10 @@ async def run_lua_script(script: str, filename: str = "") -> str:
 
     WARNING: this executes unrestricted code (including io/os access)
     on the host running Aseprite. Only pass scripts you trust.
-
-    Args:
-        script: Lua source code to execute
-        filename: Optional Aseprite file to open before running
     """
     if not script.strip():
         return "Script cannot be empty"
-    if filename and not os.path.exists(filename):
+    if filename and not await path_exists(filename):
         return f"File {filename} not found"
 
     success, output = AsepriteCommand.execute_lua_script(script, filename or None)

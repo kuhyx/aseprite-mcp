@@ -1,9 +1,13 @@
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, HSL, NORMALIZE_CEL, PSET
+from ..core.paths import path_exists
 
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
@@ -12,29 +16,33 @@ def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     return rgba[:3] if rgba else None
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def outline_cel(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    color: str = "#000000",
-    include_diagonals: bool = False,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to outline")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    color: Annotated[str, Field(description="Outline hex color")] = "#000000",
+    include_diagonals: Annotated[
+        bool,
+        Field(
+            description="Also outline diagonal neighbors for a thicker, rounded outline"
+        ),
+    ] = False,
 ) -> str:
     """Add a 1px outline around all opaque pixels of a cel.
 
     Transparent pixels adjacent to opaque pixels are filled with the
     outline color. Great for making sprites read clearly against any
     background.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to outline
-        frame_index: Frame index starting at 1
-        color: Outline hex color (default black)
-        include_diagonals: Also outline diagonal neighbors for a thicker,
-            rounded outline (default False)
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -95,26 +103,28 @@ async def outline_cel(
     return f"Failed to outline cel: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def replace_color(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    from_color: str,
-    to_color: str,
-    tolerance: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to operate on")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    from_color: Annotated[
+        str, Field(description='Hex color to replace, e.g. "#FF0000"')
+    ],
+    to_color: Annotated[str, Field(description="Replacement hex color")],
+    tolerance: Annotated[
+        int, Field(description="Per-channel tolerance 0-255; 0 means exact match")
+    ] = 0,
 ) -> str:
-    """Replace one color with another in a cel, preserving alpha.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to operate on
-        frame_index: Frame index starting at 1
-        from_color: Hex color to replace, e.g. "#FF0000"
-        to_color: Replacement hex color
-        tolerance: Per-channel tolerance 0-255 (default 0 = exact match)
-    """
-    if not os.path.exists(filename):
+    """Replace one color with another in a cel, preserving alpha."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     src = _parse_hex_color(from_color)
@@ -179,30 +189,36 @@ async def replace_color(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def adjust_hsl(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    hue_shift: float = 0,
-    saturation_shift: float = 0,
-    lightness_shift: float = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to adjust")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    hue_shift: Annotated[
+        float, Field(description="Degrees to rotate hue, -360 to 360")
+    ] = 0,
+    saturation_shift: Annotated[
+        float, Field(description="Saturation delta, -100 to 100")
+    ] = 0,
+    lightness_shift: Annotated[
+        float, Field(description="Lightness delta, -100 to 100")
+    ] = 0,
 ) -> str:
     """Shift hue, saturation, and lightness of all opaque pixels in a cel.
 
     Useful for creating palette-swapped variants and shading: e.g. darken
     a duplicated layer for shadows or hue-shift toward blue for night
-    scenes.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to adjust
-        frame_index: Frame index starting at 1
-        hue_shift: Degrees to rotate hue, -360 to 360
-        saturation_shift: Saturation delta, -100 to 100
-        lightness_shift: Lightness delta, -100 to 100
+    scenes. Shifts are relative and accumulate each time this is called
+    on the same cel.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not (-360 <= hue_shift <= 360):
         return "hue_shift must be between -360 and 360"
@@ -261,40 +277,43 @@ async def adjust_hsl(
     return f"Failed to adjust HSL: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def apply_dither_gradient(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    color_start: str,
-    color_end: str,
-    horizontal: bool = False,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to draw on")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    x: Annotated[int, Field(description="Left edge of the rectangle")],
+    y: Annotated[int, Field(description="Top edge of the rectangle")],
+    width: Annotated[int, Field(description="Rectangle width")],
+    height: Annotated[int, Field(description="Rectangle height")],
+    color_start: Annotated[
+        str, Field(description="Hex color at the start of the gradient")
+    ],
+    color_end: Annotated[
+        str, Field(description="Hex color at the end of the gradient")
+    ],
+    horizontal: Annotated[
+        bool,
+        Field(description="Run the gradient left-to-right instead of top-to-bottom"),
+    ] = False,
+    create_if_missing: Annotated[
+        bool, Field(description="Create the cel if it does not exist")
+    ] = True,
 ) -> str:
     """Fill a rectangle with a two-color gradient using Bayer 4x4 ordered dithering.
 
     This is the classic pixel-art way to blend two colors without
     introducing new intermediate colors. The gradient runs from
     color_start (top/left) to color_end (bottom/right).
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to draw on
-        frame_index: Frame index starting at 1
-        x: Left edge of the rectangle
-        y: Top edge of the rectangle
-        width: Rectangle width
-        height: Rectangle height
-        color_start: Hex color at the start of the gradient
-        color_end: Hex color at the end of the gradient
-        horizontal: Run the gradient left-to-right instead of top-to-bottom
-        create_if_missing: Create the cel if it does not exist
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -363,40 +382,43 @@ async def apply_dither_gradient(
     return f"Failed to apply dither gradient: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def apply_dither_pattern(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    color_a: str,
-    color_b: str,
-    density: float = 0.5,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Layer to draw on")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    x: Annotated[int, Field(description="Left edge of the rectangle")],
+    y: Annotated[int, Field(description="Top edge of the rectangle")],
+    width: Annotated[int, Field(description="Rectangle width")],
+    height: Annotated[int, Field(description="Rectangle height")],
+    color_a: Annotated[str, Field(description="Base hex color")],
+    color_b: Annotated[str, Field(description="Mixed-in hex color")],
+    density: Annotated[
+        float,
+        Field(
+            description=(
+                "Fraction of color_b, 0.0-1.0: 0.0 is all color_a, 0.5 is a "
+                "checkerboard, 1.0 is all color_b"
+            )
+        ),
+    ] = 0.5,
+    create_if_missing: Annotated[
+        bool, Field(description="Create the cel if it does not exist")
+    ] = True,
 ) -> str:
     """Fill a rectangle with a uniform Bayer-dithered mix of two colors.
 
-    density controls the ratio: 0.0 = all color_a, 0.5 = checkerboard,
-    1.0 = all color_b. Useful for textures (stone, grass) and flat
-    mid-tones between two palette colors.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to draw on
-        frame_index: Frame index starting at 1
-        x: Left edge of the rectangle
-        y: Top edge of the rectangle
-        width: Rectangle width
-        height: Rectangle height
-        color_a: Base hex color
-        color_b: Mixed-in hex color
-        density: Fraction of color_b, 0.0-1.0 (default 0.5)
-        create_if_missing: Create the cel if it does not exist
+    Useful for textures (stone, grass) and flat mid-tones between two
+    palette colors.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"

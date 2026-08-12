@@ -1,10 +1,13 @@
-import os
-from typing import Any
+from typing import Annotated, Any
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
+from ..core.paths import path_exists
 
 
 def _parse_write_counts(output: str, total: int) -> tuple[int, int]:
@@ -30,17 +33,40 @@ def _parse_hex_color(value: str) -> tuple[int, int, int, int] | None:
     return parse_hex_color(value)
 
 
-@mcp.tool()
-async def draw_pixels(filename: str, pixels: list[dict[str, Any]]) -> str:
-    """Draw pixels on the canvas with specified colors.
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def draw_pixels(
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    pixels: Annotated[
+        list[dict[str, Any]],
+        Field(
+            description=(
+                'List of pixels to set, each a dict {"x": int, "y": int, '
+                '"color": str} where color is a hex code like "#FF0000" or '
+                '"#FF0000FF"'
+            )
+        ),
+    ],
+) -> str:
+    """Draw individual pixels on the active cel with specified colors.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        pixels: List of pixel data, each containing:
-            {"x": int, "y": int, "color": str}
-            where color is a hex code like "#FF0000"
+    Operates on app.activeCel (falling back to layer 1 / frame 1 if there is
+    no active cel). For multi-layer or multi-frame sprites, prefer
+    draw_pixels_at, which targets a named layer and frame index explicitly.
+
+    KNOWN LIMITATION: unlike draw_pixels_at, this does not grow the cel to
+    fit pixels outside its current bounds — a pixel outside the active cel's
+    bounding box is silently discarded even though this tool still reports
+    success. Use draw_pixels_at if you are drawing outside existing content
+    (e.g. adding a new feature in a previously-empty area).
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     script = """
@@ -90,32 +116,35 @@ async def draw_pixels(filename: str, pixels: list[dict[str, Any]]) -> str:
 
     if success:
         return f"Pixels drawn successfully in {filename}"
-    else:
-        return f"Failed to draw pixels: {output}"
+    return f"Failed to draw pixels: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_line(
-    filename: str,
-    x1: int,
-    y1: int,
-    x2: int,
-    y2: int,
-    color: str = "#000000",
-    thickness: int = 1,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    x1: Annotated[int, Field(description="Starting x coordinate (sprite-global)")],
+    y1: Annotated[int, Field(description="Starting y coordinate (sprite-global)")],
+    x2: Annotated[int, Field(description="Ending x coordinate (sprite-global)")],
+    y2: Annotated[int, Field(description="Ending y coordinate (sprite-global)")],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    thickness: Annotated[int, Field(description="Line thickness in pixels")] = 1,
 ) -> str:
-    """Draw a line on the canvas.
+    """Draw a straight line on the active cel using Bresenham's algorithm.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        x1: Starting x coordinate
-        y1: Starting y coordinate
-        x2: Ending x coordinate
-        y2: Ending y coordinate
-        color: Hex color code (default: "#000000")
-        thickness: Line thickness in pixels (default: 1)
+    Operates on app.activeCel (falling back to layer 1 / frame 1 if there is
+    no active cel). For multi-layer or multi-frame sprites, prefer
+    draw_line_at, which targets a named layer and frame index explicitly.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -183,32 +212,43 @@ async def draw_line(
 
     if success:
         return f"Line drawn successfully in {filename}"
-    else:
-        return f"Failed to draw line: {output}"
+    return f"Failed to draw line: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_rectangle(
-    filename: str,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    color: str = "#000000",
-    fill: bool = False,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    x: Annotated[int, Field(description="Top-left x coordinate (sprite-global)")],
+    y: Annotated[int, Field(description="Top-left y coordinate (sprite-global)")],
+    width: Annotated[
+        int, Field(description="Width of the rectangle in pixels; must be > 0")
+    ],
+    height: Annotated[
+        int, Field(description="Height of the rectangle in pixels; must be > 0")
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    fill: Annotated[
+        bool,
+        Field(description="Fill the rectangle instead of only drawing its outline"),
+    ] = False,
 ) -> str:
-    """Draw a rectangle on the canvas.
+    """Draw a rectangle outline or filled rectangle on the active cel.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        x: Top-left x coordinate
-        y: Top-left y coordinate
-        width: Width of the rectangle in pixels (must be > 0)
-        height: Height of the rectangle in pixels (must be > 0)
-        color: Hex color code (default: "#000000")
-        fill: Whether to fill the rectangle (default: False)
+    Operates on app.activeCel (falling back to layer 1 / frame 1 if there is
+    no active cel). For multi-layer or multi-frame sprites, prefer
+    draw_rectangle_at, which targets a named layer and frame index
+    explicitly.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -255,21 +295,41 @@ async def draw_rectangle(
 
     if success:
         return f"Rectangle drawn successfully in {filename}"
-    else:
-        return f"Failed to draw rectangle: {output}"
+    return f"Failed to draw rectangle: {output}"
 
 
-@mcp.tool()
-async def fill_area(filename: str, x: int, y: int, color: str = "#000000") -> str:
-    """Fill an area with color using the paint bucket tool.
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
+async def fill_area(
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    x: Annotated[
+        int,
+        Field(description="X coordinate to start the flood fill from (sprite-global)"),
+    ],
+    y: Annotated[
+        int,
+        Field(description="Y coordinate to start the flood fill from (sprite-global)"),
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+) -> str:
+    """Flood-fill a contiguous area with color using the paint bucket tool.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        x: X coordinate to fill from
-        y: Y coordinate to fill from
-        color: Hex color code (default: "#000000")
+    Operates on app.activeCel (falling back to layer 1 / frame 1 if there is
+    no active cel). For multi-layer or multi-frame sprites, prefer
+    fill_area_at, which targets a named layer and frame index explicitly.
+    Because the fill region depends on current cel content, calling this
+    twice at the same point is not guaranteed to produce the same result if
+    the surrounding pixels changed between calls.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -308,30 +368,40 @@ async def fill_area(filename: str, x: int, y: int, color: str = "#000000") -> st
 
     if success:
         return f"Area filled successfully in {filename}"
-    else:
-        return f"Failed to fill area: {output}"
+    return f"Failed to fill area: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_circle(
-    filename: str,
-    center_x: int,
-    center_y: int,
-    radius: int,
-    color: str = "#000000",
-    fill: bool = False,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    center_x: Annotated[
+        int, Field(description="X coordinate of the circle's center (sprite-global)")
+    ],
+    center_y: Annotated[
+        int, Field(description="Y coordinate of the circle's center (sprite-global)")
+    ],
+    radius: Annotated[int, Field(description="Radius of the circle in pixels")],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    fill: Annotated[
+        bool, Field(description="Fill the circle instead of only drawing its outline")
+    ] = False,
 ) -> str:
-    """Draw a circle on the canvas.
+    """Draw a circle outline or filled circle on the active cel.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        center_x: X coordinate of circle center
-        center_y: Y coordinate of circle center
-        radius: Radius of the circle in pixels
-        color: Hex color code (default: "#000000")
-        fill: Whether to fill the circle (default: False)
+    Operates on app.activeCel (falling back to layer 1 / frame 1 if there is
+    no active cel). For multi-layer or multi-frame sprites, prefer
+    draw_circle_at, which targets a named layer and frame index explicitly.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -374,28 +444,55 @@ async def draw_circle(
 
     if success:
         return f"Circle drawn successfully in {filename}"
-    else:
-        return f"Failed to draw circle: {output}"
+    return f"Failed to draw circle: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_pixels_at(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    pixels: list[dict[str, Any]],
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    pixels: Annotated[
+        list[dict[str, Any]],
+        Field(
+            description=(
+                'List of pixels to set, each a dict {"x": int, "y": int, '
+                '"color": str} where color is a hex code like "#FF0000" or '
+                '"#FF0000FF"'
+            )
+        ),
+    ],
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw pixels on a specific layer/frame.
+    """Draw pixels on a specific layer and frame, growing the cel to fit.
 
-    Args:
-        filename: Name of the Aseprite file to modify
-        layer_name: Layer name to target
-        frame_index: Frame index starting at 1
-        pixels: List of pixel data with x/y/color
-        create_if_missing: Create cel if it does not exist
+    Unlike draw_pixels, this grows the target cel's bounding box to cover
+    every requested pixel (clipped to the canvas) before writing, so pixels
+    in a previously-empty area of the cel are not silently discarded. Use
+    this whenever drawing on a named layer/frame, or when adding new
+    content outside an existing cel's current bounds.
+
+    Returns:
+        A summary noting how many pixels were written, and a WARNING with
+        the count of any pixels that fell outside the canvas and were
+        discarded.
+
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     safe_layer_name = lua_escape(layer_name)
@@ -513,34 +610,42 @@ async def draw_pixels_at(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_line_at(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x1: int,
-    y1: int,
-    x2: int,
-    y2: int,
-    color: str = "#000000",
-    thickness: int = 1,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    x1: Annotated[int, Field(description="Starting x coordinate (sprite-global)")],
+    y1: Annotated[int, Field(description="Starting y coordinate (sprite-global)")],
+    x2: Annotated[int, Field(description="Ending x coordinate (sprite-global)")],
+    y2: Annotated[int, Field(description="Ending y coordinate (sprite-global)")],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    thickness: Annotated[int, Field(description="Line thickness in pixels")] = 1,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw a line on a specific layer/frame.
+    """Draw a straight line on a specific layer and frame.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        x1 (int): The x coordinate of the first point of the line.
-        y1 (int): The y coordinate of the first point of the line.
-        x2 (int): The x coordinate of the second point of the line.
-        y2 (int): The y coordinate of the second point of the line.
-        color (str, optional): The color to draw the line with. Defaults to "#000000".
-        thickness (int, optional): The thickness of the line. Defaults to 1.
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    The layer/frame-targeted counterpart of draw_line — use this for
+    multi-layer or multi-frame sprites instead of relying on the active
+    cel.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -615,34 +720,49 @@ async def draw_line_at(
     return f"Failed to draw line: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_rectangle_at(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    color: str = "#000000",
-    fill: bool = False,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    x: Annotated[int, Field(description="Top-left x coordinate (sprite-global)")],
+    y: Annotated[int, Field(description="Top-left y coordinate (sprite-global)")],
+    width: Annotated[
+        int, Field(description="Width of the rectangle in pixels; must be > 0")
+    ],
+    height: Annotated[
+        int, Field(description="Height of the rectangle in pixels; must be > 0")
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    fill: Annotated[
+        bool,
+        Field(description="Fill the rectangle instead of only drawing its outline"),
+    ] = False,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw a rectangle on a specific layer/frame.
+    """Draw a rectangle outline or filled rectangle on a specific layer/frame.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        x (int): The x coordinate of the top-left corner of the rectangle.
-        y (int): The y coordinate of the top-left corner of the rectangle.
-        width (int): The width of the rectangle.
-        height (int): The height of the rectangle.
-        color (str, optional): The color to draw the rectangle with. Defaults to "#000000".
-        fill (bool, optional): Whether to fill the rectangle. Defaults to False.
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    The layer/frame-targeted counterpart of draw_rectangle — use this for
+    multi-layer or multi-frame sprites instead of relying on the active
+    cel.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -695,32 +815,47 @@ async def draw_rectangle_at(
     return f"Failed to draw rectangle: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_circle_at(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    center_x: int,
-    center_y: int,
-    radius: int,
-    color: str = "#000000",
-    fill: bool = False,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    center_x: Annotated[
+        int, Field(description="X coordinate of the circle's center (sprite-global)")
+    ],
+    center_y: Annotated[
+        int, Field(description="Y coordinate of the circle's center (sprite-global)")
+    ],
+    radius: Annotated[int, Field(description="Radius of the circle in pixels")],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    fill: Annotated[
+        bool, Field(description="Fill the circle instead of only drawing its outline")
+    ] = False,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw a circle on a specific layer/frame.
+    """Draw a circle outline or filled circle on a specific layer/frame.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        center_x (int): The x coordinate of the center of the circle.
-        center_y (int): The y coordinate of the center of the circle.
-        radius (int): The radius of the circle.
-        color (str, optional): The color to draw the circle with. Defaults to "#000000".
-        fill (bool, optional): Whether to fill the circle. Defaults to False.
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    The layer/frame-targeted counterpart of draw_circle — use this for
+    multi-layer or multi-frame sprites instead of relying on the active
+    cel.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -772,28 +907,47 @@ async def draw_circle_at(
     return f"Failed to draw circle: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def fill_area_at(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    color: str = "#000000",
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    x: Annotated[
+        int,
+        Field(description="X coordinate to start the flood fill from (sprite-global)"),
+    ],
+    y: Annotated[
+        int,
+        Field(description="Y coordinate to start the flood fill from (sprite-global)"),
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Fill an area on a specific layer/frame.
+    """Flood-fill a contiguous area on a specific layer/frame.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        x (int): The x coordinate of the point to start filling from.
-        y (int): The y coordinate of the point to start filling from.
-        color (str, optional): The color to fill the area with. Defaults to "#000000".
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    The layer/frame-targeted counterpart of fill_area — use this for
+    multi-layer or multi-frame sprites instead of relying on the active
+    cel. Because the fill region depends on current cel content, calling
+    this twice at the same point is not guaranteed to produce the same
+    result if the surrounding pixels changed between calls.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     rgb = _parse_hex_color(color)
@@ -841,28 +995,48 @@ async def fill_area_at(
     return f"Failed to fill area: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_polygon(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    points: list[dict[str, int]],
-    color: str = "#000000",
-    fill: bool = False,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    points: Annotated[
+        list[dict[str, int]],
+        Field(
+            description='Ordered vertices of the polygon, each a dict {"x": int, "y": int}; at least 3 required'
+        ),
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    fill: Annotated[
+        bool,
+        Field(
+            description="Fill the polygon interior instead of only drawing its outline"
+        ),
+    ] = False,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw a polygon on a specific layer/frame.
+    """Draw a closed polygon outline or filled polygon on a specific layer/frame.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        points (List[Dict[str, int]]): The list of points to draw the polygon.
-        color (str, optional): The color to draw the polygon with. Defaults to "#000000".
-        fill (bool, optional): Whether to fill the polygon. Defaults to False.
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    The vertices are connected in order and the shape is closed back to the
+    first vertex automatically.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if len(points) < 3:
         return "Polygon requires at least 3 points"
@@ -966,28 +1140,43 @@ async def draw_polygon(
     return f"Failed to draw polygon: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_path(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    points: list[dict[str, int]],
-    color: str = "#000000",
-    thickness: int = 1,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    points: Annotated[
+        list[dict[str, int]],
+        Field(
+            description='Ordered vertices of the polyline, each a dict {"x": int, "y": int}; at least 2 required'
+        ),
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    thickness: Annotated[int, Field(description="Line thickness in pixels")] = 1,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw a path using a polyline on a specific layer/frame.
+    """Draw an open polyline through an ordered sequence of points.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        points (List[Dict[str, int]]): The points to draw the path with.
-        color (str, optional): The color to draw the path with. Defaults to "#000000".
-        thickness (int, optional): The thickness of the path. Defaults to 1.
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    Unlike draw_polygon, the path is NOT closed back to the first point —
+    use draw_polygon if you need a closed shape.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if len(points) < 2:
         return "Path requires at least 2 points"
@@ -1064,36 +1253,68 @@ async def draw_path(
     return f"Failed to draw path: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def apply_gradient_rect(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    x: int,
-    y: int,
-    width: int,
-    height: int,
-    color_start: str,
-    color_end: str,
-    horizontal: bool = True,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    x: Annotated[
+        int,
+        Field(
+            description="Top-left x coordinate of the gradient rectangle (sprite-global)"
+        ),
+    ],
+    y: Annotated[
+        int,
+        Field(
+            description="Top-left y coordinate of the gradient rectangle (sprite-global)"
+        ),
+    ],
+    width: Annotated[
+        int, Field(description="Width of the gradient rectangle in pixels; must be > 0")
+    ],
+    height: Annotated[
+        int,
+        Field(description="Height of the gradient rectangle in pixels; must be > 0"),
+    ],
+    color_start: Annotated[
+        str,
+        Field(
+            description='Hex color code at the gradient\'s start edge, e.g. "#FF0000"'
+        ),
+    ],
+    color_end: Annotated[
+        str,
+        Field(description='Hex color code at the gradient\'s end edge, e.g. "#0000FF"'),
+    ],
+    horizontal: Annotated[
+        bool,
+        Field(
+            description="Interpolate left-to-right when True, top-to-bottom when False"
+        ),
+    ] = True,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Apply a linear gradient fill to a rectangle.
+    """Fill a rectangle with a linear gradient between two colors.
 
-    Args:
-        filename (str): The path to the Aseprite file.
-        layer_name (str): The name of the layer to draw on.
-        frame_index (int): The index of the frame to draw on.
-        x (int): The x coordinate of the rectangle to draw on.
-        y (int): The y coordinate of the rectangle to draw on.
-        width (int): The width of the rectangle to draw on.
-        height (int): The height of the rectangle to draw on.
-        color_start (str): The start color of the gradient.
-        color_end (str): The end color of the gradient.
-        horizontal (bool, optional): Whether to draw the gradient horizontally. Defaults to True.
-        create_if_missing (bool, optional): Whether to create the layer if it doesn't exist. Defaults to True.
+    Each channel (r, g, b, a) is interpolated independently and linearly
+    between color_start and color_end across the rectangle.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if width <= 0 or height <= 0:
         return "Width and height must be > 0"
@@ -1159,34 +1380,51 @@ async def apply_gradient_rect(
     return f"Failed to apply gradient: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def draw_ellipse_at(
-    filename: str,
-    layer_name: str,
-    frame_index: int,
-    center_x: int,
-    center_y: int,
-    radius_x: int,
-    radius_y: int,
-    color: str = "#000000",
-    fill: bool = False,
-    create_if_missing: bool = True,
+    filename: Annotated[str, Field(description="Path to the Aseprite file to modify")],
+    layer_name: Annotated[str, Field(description="Name of the layer to draw on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index to draw on, starting at 1")
+    ],
+    center_x: Annotated[
+        int, Field(description="X coordinate of the ellipse's center (sprite-global)")
+    ],
+    center_y: Annotated[
+        int, Field(description="Y coordinate of the ellipse's center (sprite-global)")
+    ],
+    radius_x: Annotated[
+        int, Field(description="Horizontal radius in pixels; must be > 0")
+    ],
+    radius_y: Annotated[
+        int, Field(description="Vertical radius in pixels; must be > 0")
+    ],
+    color: Annotated[
+        str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
+    ] = "#000000",
+    fill: Annotated[
+        bool, Field(description="Fill the ellipse instead of only drawing its outline")
+    ] = False,
+    create_if_missing: Annotated[
+        bool,
+        Field(
+            description="Create the cel on that layer/frame if it does not already exist"
+        ),
+    ] = True,
 ) -> str:
-    """Draw an ellipse on a specific layer/frame.
+    """Draw an ellipse outline or filled ellipse on a specific layer/frame.
 
-    Args:
-        filename: Aseprite file to modify
-        layer_name: Layer to draw on
-        frame_index: Frame index starting at 1
-        center_x: Ellipse center x
-        center_y: Ellipse center y
-        radius_x: Horizontal radius in pixels
-        radius_y: Vertical radius in pixels
-        color: Hex color code (default "#000000")
-        fill: Fill the ellipse instead of outlining it
-        create_if_missing: Create the cel if it does not exist
+    Use draw_circle_at instead when radius_x equals radius_y (a true
+    circle) — this tool exists for the independently-scaled case.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if radius_x <= 0 or radius_y <= 0:
         return "radius_x and radius_y must be > 0"

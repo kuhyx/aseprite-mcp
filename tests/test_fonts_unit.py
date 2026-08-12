@@ -580,16 +580,15 @@ def test_iter_user_fonts_finds_bitmap_dir_and_ttf_file(isolated_font_dirs):
     assert ("MyTTF", "truetype") in found
 
 
-def test_iter_system_fonts_skips_unreadable_dir(monkeypatch):
-    monkeypatch.setattr(fontlib, "_SYSTEM_FONT_DIRS", ("/fake/protected",))
-    monkeypatch.setattr(
-        fontlib.os.path, "isdir", lambda path: path == "/fake/protected"
-    )
+def test_iter_system_fonts_skips_unreadable_dir(monkeypatch, tmp_path):
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    monkeypatch.setattr(fontlib, "_SYSTEM_FONT_DIRS", (str(protected),))
 
-    def raising_listdir(path):
+    def raising_iterdir(self):
         raise OSError("denied")
 
-    monkeypatch.setattr(fontlib.os, "listdir", raising_listdir)
+    monkeypatch.setattr(fontlib.Path, "iterdir", raising_iterdir)
     assert list(fontlib._iter_system_fonts()) == []
 
 

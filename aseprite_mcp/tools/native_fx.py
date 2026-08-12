@@ -10,11 +10,15 @@ General value (upstream-able): nothing Chimera-specific here.
 """
 
 import json
-import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.native import build_native_command_script
+from ..core.paths import path_exists
 from .fx import _parse_hex_color
 
 # Built-in convolution-matrix resource names (Aseprite data/convmatr.def).
@@ -69,29 +73,34 @@ def _region(
     return (x, y, width, height) if width > 0 and height > 0 else None
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def outline_native(
-    filename: str,
-    layer_name: str = "",
-    frame_index: int = 1,
-    color: str = "#000000",
-    place: str = "outside",
-    matrix: str = "circle",
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Layer to outline (empty = active layer)")
+    ] = "",
+    frame_index: Annotated[int, Field(description="1-based frame index")] = 1,
+    color: Annotated[str, Field(description="Outline colour as #RRGGBB")] = "#000000",
+    place: Annotated[
+        str, Field(description="Outline placement: 'outside' or 'inside'")
+    ] = "outside",
+    matrix: Annotated[
+        str, Field(description="Outline brush shape: 'circle' or 'square'")
+    ] = "circle",
 ) -> str:
     """Native Aseprite Outline around opaque pixels (app.command.Outline).
 
     Higher quality than the 1px hand-rolled outline_cel: inside/outside
     placement + a circle/square brush. Works best on a full-canvas cel.
-
-    Args:
-        filename: Aseprite file to modify
-        layer_name: layer to outline (empty = active layer)
-        frame_index: 1-based frame
-        color: outline colour as #RRGGBB
-        place: "outside" or "inside"
-        matrix: "circle" or "square"
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     rgb = _parse_hex_color(color)
     if not rgb:
@@ -114,31 +123,55 @@ async def outline_native(
     return f"Failed to outline: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def adjust_hsl_native(
-    filename: str,
-    layer_name: str = "",
-    frame_index: int = 1,
-    hue: int = 0,
-    saturation: int = 0,
-    lightness: int = 0,
-    x: int = 0,
-    y: int = 0,
-    width: int = 0,
-    height: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Layer to adjust (empty = active layer)")
+    ] = "",
+    frame_index: Annotated[int, Field(description="1-based frame index")] = 1,
+    hue: Annotated[int, Field(description="Hue shift in degrees, -180..180")] = 0,
+    saturation: Annotated[int, Field(description="Saturation shift, -100..100")] = 0,
+    lightness: Annotated[int, Field(description="Lightness shift, -100..100")] = 0,
+    x: Annotated[
+        int,
+        Field(
+            description="Region left edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    y: Annotated[
+        int,
+        Field(
+            description="Region top edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    width: Annotated[
+        int,
+        Field(
+            description="Region width in pixels; >0 together with height>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
+    height: Annotated[
+        int,
+        Field(
+            description="Region height in pixels; >0 together with width>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
 ) -> str:
     """Native Hue/Saturation/Lightness filter (engine-quality vs adjust_hsl).
 
-    Args:
-        filename: Aseprite file to modify
-        layer_name: layer to adjust (empty = active layer)
-        frame_index: 1-based frame
-        hue: -180..180 (degrees)
-        saturation: -100..100
-        lightness: -100..100
-        x, y, width, height: optional region (width>0 & height>0 to scope)
+    Shifts hue/saturation/lightness on a layer or cel region using
+    Aseprite's own engine filter for higher quality than the hand-rolled
+    adjust_hsl.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not (-180 <= hue <= 180):
         return "hue must be -180..180"
@@ -157,29 +190,53 @@ async def adjust_hsl_native(
     return f"Failed to adjust HSL: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def adjust_brightness_contrast(
-    filename: str,
-    layer_name: str = "",
-    frame_index: int = 1,
-    brightness: int = 0,
-    contrast: int = 0,
-    x: int = 0,
-    y: int = 0,
-    width: int = 0,
-    height: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Layer to adjust (empty = active layer)")
+    ] = "",
+    frame_index: Annotated[int, Field(description="1-based frame index")] = 1,
+    brightness: Annotated[int, Field(description="Brightness shift, -100..100")] = 0,
+    contrast: Annotated[int, Field(description="Contrast shift, -100..100")] = 0,
+    x: Annotated[
+        int,
+        Field(
+            description="Region left edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    y: Annotated[
+        int,
+        Field(
+            description="Region top edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    width: Annotated[
+        int,
+        Field(
+            description="Region width in pixels; >0 together with height>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
+    height: Annotated[
+        int,
+        Field(
+            description="Region height in pixels; >0 together with width>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
 ) -> str:
     """Native Brightness/Contrast filter (app.command.BrightnessContrast).
 
-    Args:
-        filename: Aseprite file to modify
-        layer_name: layer to adjust (empty = active layer)
-        frame_index: 1-based frame
-        brightness: -100..100
-        contrast: -100..100
-        x, y, width, height: optional region (width>0 & height>0 to scope)
+    Applies Aseprite's own brightness/contrast engine filter to a layer or
+    cel region.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not (-100 <= brightness <= 100) or not (-100 <= contrast <= 100):
         return "brightness and contrast must be -100..100"
@@ -196,25 +253,52 @@ async def adjust_brightness_contrast(
     return f"Failed to adjust brightness/contrast: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def invert_colors(
-    filename: str,
-    layer_name: str = "",
-    frame_index: int = 1,
-    x: int = 0,
-    y: int = 0,
-    width: int = 0,
-    height: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    layer_name: Annotated[
+        str, Field(description="Layer to invert (empty = active layer)")
+    ] = "",
+    frame_index: Annotated[int, Field(description="1-based frame index")] = 1,
+    x: Annotated[
+        int,
+        Field(
+            description="Region left edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    y: Annotated[
+        int,
+        Field(
+            description="Region top edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    width: Annotated[
+        int,
+        Field(
+            description="Region width in pixels; >0 together with height>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
+    height: Annotated[
+        int,
+        Field(
+            description="Region height in pixels; >0 together with width>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
 ) -> str:
     """Native colour inversion (app.command.InvertColor).
 
-    Args:
-        filename: Aseprite file to modify
-        layer_name: layer to invert (empty = active layer)
-        frame_index: 1-based frame
-        x, y, width, height: optional region (width>0 & height>0 to scope)
+    Inverts RGB colour values on a layer or cel region. Calling it twice on
+    the same region restores the original colours instead of leaving it
+    inverted, so treat it as a toggle rather than a "set inverted" call.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     cmd = "        app.command.InvertColor{ui=false}"
     script = build_native_command_script(
@@ -226,28 +310,58 @@ async def invert_colors(
     return f"Failed to invert: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def apply_convolution(
-    filename: str,
-    matrix: str,
-    layer_name: str = "",
-    frame_index: int = 1,
-    x: int = 0,
-    y: int = 0,
-    width: int = 0,
-    height: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    matrix: Annotated[
+        str,
+        Field(
+            description="Built-in matrix name (see list_convolution_matrices), "
+            "e.g. 'blur-3x3', 'sharpen-3x3', 'edges-find', 'misc-emboss'"
+        ),
+    ],
+    layer_name: Annotated[
+        str, Field(description="Layer to filter (empty = active layer)")
+    ] = "",
+    frame_index: Annotated[int, Field(description="1-based frame index")] = 1,
+    x: Annotated[
+        int,
+        Field(
+            description="Region left edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    y: Annotated[
+        int,
+        Field(
+            description="Region top edge; 0 with width/height unset scopes the whole layer"
+        ),
+    ] = 0,
+    width: Annotated[
+        int,
+        Field(
+            description="Region width in pixels; >0 together with height>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
+    height: Annotated[
+        int,
+        Field(
+            description="Region height in pixels; >0 together with width>0 scopes the filter to a rectangle"
+        ),
+    ] = 0,
 ) -> str:
     """Native convolution filter (blur / sharpen / edge / emboss …).
 
-    Args:
-        filename: Aseprite file to modify
-        matrix: a built-in matrix name (see list_convolution_matrices),
-            e.g. "blur-3x3", "sharpen-3x3", "edges-find", "misc-emboss"
-        layer_name: layer to filter (empty = active layer)
-        frame_index: 1-based frame
-        x, y, width, height: optional region (width>0 & height>0 to scope)
+    Applies a built-in Aseprite convolution matrix (blur, sharpen, edge
+    detection, emboss, and more) to a layer or cel region.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if matrix not in CONVOLUTION_MATRICES:
         return (
@@ -264,7 +378,14 @@ async def apply_convolution(
     return f"Failed to apply convolution: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def list_convolution_matrices() -> str:
     """List the built-in convolution-matrix names usable with apply_convolution.
 
@@ -274,11 +395,23 @@ async def list_convolution_matrices() -> str:
     return json.dumps(sorted(CONVOLUTION_MATRICES))
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def extract_palette(
-    filename: str,
-    max_colors: int = 16,
-    with_alpha: bool = False,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    max_colors: Annotated[
+        int,
+        Field(description="Palette size cap, 1..256 (fewer if the art has fewer)"),
+    ] = 16,
+    with_alpha: Annotated[
+        bool, Field(description="Include alpha channel when quantizing")
+    ] = False,
 ) -> str:
     """Build an OPTIMAL palette from the sprite via native ColorQuantization.
 
@@ -286,15 +419,10 @@ async def extract_palette(
     the resulting palette to the sprite and returns it. NOTE: mutates the
     sprite's palette. Sprite must be in RGB mode.
 
-    Args:
-        filename: Aseprite file to modify
-        max_colors: palette size cap, 1..256 (fewer if the art has fewer)
-        with_alpha: include alpha when quantizing
-
     Returns:
         JSON {colors: [#RRGGBB, ...], count}
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if not (1 <= max_colors <= 256):
         return "max_colors must be 1..256"

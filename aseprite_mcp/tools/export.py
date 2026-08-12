@@ -1,23 +1,36 @@
 import glob
 import os
+from typing import Annotated
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL
+from ..core.paths import path_exists
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def export_sprite(
-    filename: str, output_filename: str, format: str = "png"
+    filename: Annotated[str, Field(description="Name of the Aseprite file to export")],
+    output_filename: Annotated[str, Field(description="Name of the output file")],
+    format: Annotated[
+        str,
+        Field(
+            description='Output format, e.g. "png", "gif", "jpg" (default "png")',
+        ),
+    ] = "png",
 ) -> str:
-    """Export the Aseprite file to another format.
-
-    Args:
-        filename: Name of the Aseprite file to export
-        output_filename: Name of the output file
-        format: Output format (default: "png", can be "png", "gif", "jpg", etc.)
-    """
-    if not os.path.exists(filename):
+    """Export the Aseprite file to another format."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     # Make sure format is lowercase
@@ -43,7 +56,7 @@ async def export_sprite(
     # too — same convention as export_frame.
     if success:
         base, ext = os.path.splitext(output_filename)
-        if not os.path.exists(output_filename) and not glob.glob(f"{base}*{ext}"):
+        if not await path_exists(output_filename) and not glob.glob(f"{base}*{ext}"):
             success = False
             output = "Aseprite exited 0 but wrote no file (the format may not be writable via --save-as)"
 
@@ -53,18 +66,30 @@ async def export_sprite(
         return f"Failed to export sprite: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 async def copy_sprite(
-    filename: str, output_filename: str, overwrite: bool = False
+    filename: Annotated[str, Field(description="Name of the Aseprite file to copy")],
+    output_filename: Annotated[
+        str, Field(description="Name of the output .aseprite file")
+    ],
+    overwrite: Annotated[
+        bool, Field(description="Whether to overwrite if output exists")
+    ] = False,
 ) -> str:
     """Copy a sprite to a new Aseprite file.
 
-    Args:
-        filename: Name of the Aseprite file to copy
-        output_filename: Name of the output .aseprite file
-        overwrite: Whether to overwrite if output exists
+    The source file is only read; nothing about it is modified. When
+    overwrite is True and output_filename already exists, that existing
+    file is replaced.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
 
     if not output_filename.lower().endswith(".aseprite"):
@@ -74,7 +99,7 @@ async def copy_sprite(
     if err:
         return err
 
-    if os.path.exists(output_filename) and not overwrite:
+    if await path_exists(output_filename) and not overwrite:
         return f"Output file {output_filename} already exists"
 
     safe_path = lua_escape(output_filename.replace("\\", "/"))
@@ -87,7 +112,7 @@ async def copy_sprite(
     """
 
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
-    if success and not os.path.exists(output_filename):
+    if success and not await path_exists(output_filename):
         success = False
         output = "Aseprite exited 0 but wrote no file"
     if success:
@@ -95,25 +120,28 @@ async def copy_sprite(
     return f"Failed to copy sprite: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def export_frame(
-    filename: str,
-    frame_index: int,
-    output_filename: str,
-    scale: int = 1,
+    filename: Annotated[str, Field(description="Aseprite file to export")],
+    frame_index: Annotated[int, Field(description="Frame index starting at 1")],
+    output_filename: Annotated[str, Field(description="Output PNG path")],
+    scale: Annotated[
+        int, Field(description="Integer nearest-neighbor scale factor (default 1)")
+    ] = 1,
 ) -> str:
     """Export a single frame as a PNG, optionally scaled up.
 
     Use this for visual feedback while drawing: export at scale 8-10 and
     open the PNG to inspect the result, then keep iterating.
-
-    Args:
-        filename: Aseprite file to export
-        frame_index: Frame index starting at 1
-        output_filename: Output PNG path
-        scale: Integer nearest-neighbor scale factor (default 1)
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if scale < 1 or scale > 64:
         return "scale must be between 1 and 64"
@@ -140,7 +168,7 @@ async def export_frame(
 
     # With multi-frame sprites Aseprite may append the frame number to
     # the filename; rename the produced file when that happens.
-    if not os.path.exists(output_filename):
+    if not await path_exists(output_filename):
         base, ext = os.path.splitext(output_filename)
         candidates = sorted(glob.glob(f"{base}*{ext}"))
         if candidates:
@@ -150,32 +178,56 @@ async def export_frame(
     return f"Frame {frame_index} exported to {output_filename} at {scale}x"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def export_spritesheet(
-    filename: str,
-    output_filename: str,
-    sheet_type: str = "horizontal",
-    data_filename: str = "",
-    scale: int = 1,
-    padding: int = 0,
-    tag_name: str = "",
-    data_format: str = "json-array",
-    list_tags: bool = False,
+    filename: Annotated[str, Field(description="Aseprite file to export")],
+    output_filename: Annotated[str, Field(description="Output sheet image path (PNG)")],
+    sheet_type: Annotated[
+        str,
+        Field(
+            description=(
+                'Layout: "horizontal", "vertical", "rows", "columns", or "packed"'
+            ),
+        ),
+    ] = "horizontal",
+    data_filename: Annotated[
+        str, Field(description="Optional path for a JSON metadata file")
+    ] = "",
+    scale: Annotated[
+        int,
+        Field(description="Integer scale factor applied before packing (default 1)"),
+    ] = 1,
+    padding: Annotated[
+        int, Field(description="Padding in pixels between frames (default 0)")
+    ] = 0,
+    tag_name: Annotated[
+        str,
+        Field(
+            description="Only include frames of this animation tag (default: all frames)"
+        ),
+    ] = "",
+    data_format: Annotated[
+        str,
+        Field(
+            description='JSON format for the data file: "json-array" (default) or "json-hash"'
+        ),
+    ] = "json-array",
+    list_tags: Annotated[
+        bool,
+        Field(
+            description="Include animation tag metadata in the JSON data file (default False)"
+        ),
+    ] = False,
 ) -> str:
-    """Export frames as a sprite sheet, optionally with a JSON data file.
-
-    Args:
-        filename: Aseprite file to export
-        output_filename: Output sheet image path (PNG)
-        sheet_type: Layout: "horizontal", "vertical", "rows", "columns", or "packed"
-        data_filename: Optional path for a JSON metadata file
-        scale: Integer scale factor applied before packing (default 1)
-        padding: Padding in pixels between frames (default 0)
-        tag_name: Only include frames of this animation tag (default: all frames)
-        data_format: JSON format for the data file: "json-array" (default) or "json-hash"
-        list_tags: Include animation tag metadata in the JSON data file (default: False)
-    """
-    if not os.path.exists(filename):
+    """Export frames as a sprite sheet, optionally with a JSON data file."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if sheet_type not in ("horizontal", "vertical", "rows", "columns", "packed"):
         return "sheet_type must be one of: horizontal, vertical, rows, columns, packed"
@@ -238,10 +290,10 @@ async def export_spritesheet(
     args += ["--sheet", output_filename]
 
     success, output = AsepriteCommand.run_command(args)
-    if success and not os.path.exists(output_filename):
+    if success and not await path_exists(output_filename):
         success = False
         output = "Aseprite exited 0 but wrote no sheet file"
-    if success and data_filename and not os.path.exists(data_filename):
+    if success and data_filename and not await path_exists(data_filename):
         success = False
         output = "Aseprite exited 0 but wrote no data file"
     if success:
@@ -252,20 +304,25 @@ async def export_spritesheet(
     return f"Failed to export sprite sheet: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def export_layers(
-    filename: str,
-    output_directory: str,
-    include_hidden: bool = False,
+    filename: Annotated[str, Field(description="Aseprite file to export")],
+    output_directory: Annotated[
+        str, Field(description="Directory for the per-layer PNGs (created if missing)")
+    ],
+    include_hidden: Annotated[
+        bool, Field(description="Also export hidden layers (default False)")
+    ] = False,
 ) -> str:
-    """Export each layer as its own PNG file named <layer>.png.
-
-    Args:
-        filename: Aseprite file to export
-        output_directory: Directory for the per-layer PNGs (created if missing)
-        include_hidden: Also export hidden layers (default False)
-    """
-    if not os.path.exists(filename):
+    """Export each layer as its own PNG file named <layer>.png."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     err = reject_traversal(output_directory)
     if err:
@@ -292,22 +349,25 @@ async def export_layers(
     return f"Layers exported to {output_directory}: {', '.join(produced)}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def export_tag(
-    filename: str,
-    tag_name: str,
-    output_filename: str,
-    scale: int = 1,
+    filename: Annotated[str, Field(description="Aseprite file to export")],
+    tag_name: Annotated[str, Field(description="Animation tag to export")],
+    output_filename: Annotated[
+        str,
+        Field(description="Output path; .gif gives an animation, .png a sequence"),
+    ],
+    scale: Annotated[int, Field(description="Integer scale factor (default 1)")] = 1,
 ) -> str:
-    """Export the frames of an animation tag as a GIF or PNG sequence.
-
-    Args:
-        filename: Aseprite file to export
-        tag_name: Animation tag to export
-        output_filename: Output path; .gif gives an animation, .png a sequence
-        scale: Integer scale factor (default 1)
-    """
-    if not os.path.exists(filename):
+    """Export the frames of an animation tag as a GIF or PNG sequence."""
+    if not await path_exists(filename):
         return f"File {filename} not found"
     if scale < 1 or scale > 64:
         return "scale must be between 1 and 64"
@@ -341,7 +401,7 @@ async def export_tag(
         # siblings instead of the exact name — accept those, same convention
         # as export_sprite/export_frame.
         base, ext = os.path.splitext(output_filename)
-        if not os.path.exists(output_filename) and not glob.glob(f"{base}*{ext}"):
+        if not await path_exists(output_filename) and not glob.glob(f"{base}*{ext}"):
             success = False
             output = "Aseprite exited 0 but wrote no file"
     if success:
@@ -349,32 +409,37 @@ async def export_tag(
     return f"Failed to export tag: {output}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 async def import_image_as_layer(
-    filename: str,
-    image_path: str,
-    layer_name: str,
-    frame_index: int = 1,
-    x: int = 0,
-    y: int = 0,
+    filename: Annotated[str, Field(description="Aseprite file to modify")],
+    image_path: Annotated[str, Field(description="Image file to import")],
+    layer_name: Annotated[str, Field(description="Layer to place the image on")],
+    frame_index: Annotated[
+        int, Field(description="Frame index starting at 1 (default 1)")
+    ] = 1,
+    x: Annotated[
+        int, Field(description="X position for the image's top-left corner (default 0)")
+    ] = 0,
+    y: Annotated[
+        int, Field(description="Y position for the image's top-left corner (default 0)")
+    ] = 0,
 ) -> str:
     """Import an image file (PNG, etc.) into a layer of the sprite.
 
     Useful for bringing in reference images or composing pre-made parts.
     The layer is created if it does not exist. Works best when the sprite
-    is in RGB color mode.
-
-    Args:
-        filename: Aseprite file to modify
-        image_path: Image file to import
-        layer_name: Layer to place the image on
-        frame_index: Frame index starting at 1 (default 1)
-        x: X position for the image's top-left corner (default 0)
-        y: Y position for the image's top-left corner (default 0)
+    is in RGB color mode. This mutates and saves the source .aseprite file.
     """
-    if not os.path.exists(filename):
+    if not await path_exists(filename):
         return f"File {filename} not found"
-    if not os.path.exists(image_path):
+    if not await path_exists(image_path):
         return f"Image {image_path} not found"
 
     safe_layer = lua_escape(layer_name)

@@ -130,24 +130,23 @@ def test_pid_is_running_windows_branch_false(monkeypatch):
         assert preview._pid_is_running(1234) is False
 
 
-def test_start_preview_server_windows_branch(monkeypatch, tmp_path):
+def test_spawn_server_windows_branch(monkeypatch, tmp_path):
+    # os.name = "nt" makes pathlib pick WindowsPath at every later Path()
+    # construction in this process, silently corrupting any real-path check
+    # (confirmed directly: Path(existing_dir).is_dir() returns False, not an
+    # exception). _spawn_server itself contains no pathlib, so it's tested
+    # directly rather than through the full start_preview_server tool.
     monkeypatch.setattr(preview.os, "name", "nt")
     with patch("aseprite_mcp.tools.preview.subprocess.Popen") as mock_popen:
         mock_popen.return_value.pid = 4321
-        result = run(preview.start_preview_server(str(tmp_path), _free_port()))
-    assert "Preview server started" in result
+        preview._spawn_server(["x"], str(tmp_path))
     _, kwargs = mock_popen.call_args
     assert "creationflags" in kwargs
 
 
-def test_stop_preview_server_windows_branch(monkeypatch, tmp_path):
-    port = _free_port()
-    pid_file = preview._pid_path(port)
-    with open(pid_file, "w", encoding="utf-8") as f:
-        f.write("4321")
+def test_kill_process_windows_branch(monkeypatch):
     monkeypatch.setattr(preview.os, "name", "nt")
     with patch("aseprite_mcp.tools.preview.subprocess.run") as mock_run:
-        result = run(preview.stop_preview_server(port))
-    assert "Preview server stopped" in result
+        preview._kill_process(4321)
     called_args = mock_run.call_args[0][0]
     assert called_args[0] == "taskkill"

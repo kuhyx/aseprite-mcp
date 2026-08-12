@@ -1,7 +1,7 @@
 """Coverage tests for export.py: validation, error, and branch paths."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from conftest import BASE, ok, run
 
@@ -461,9 +461,12 @@ def test_export_spritesheet_exited_zero_no_data_file():
     data_out = f"{BASE}/sheet_zero_data.json"
     real_exists = os.path.exists
 
+    async def fake_path_exists(p: str) -> bool:
+        return False if p == data_out else real_exists(p)
+
     with patch(
-        "aseprite_mcp.tools.export.os.path.exists",
-        side_effect=lambda p: False if p == data_out else real_exists(p),
+        "aseprite_mcp.tools.export.path_exists",
+        AsyncMock(side_effect=fake_path_exists),
     ):
         result = run(export.export_spritesheet(fresh, out, data_filename=data_out))
     assert (
