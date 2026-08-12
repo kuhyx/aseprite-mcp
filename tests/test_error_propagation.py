@@ -58,7 +58,7 @@ def test_ensure_layers_present_all_missing(sprite):
 
 
 def test_export_sprite_unwritable_format(sprite):
-    # Aseprite exits 0 but writes nothing for format="json".
+    # Aseprite exits 0 but writes nothing for output_format="json".
     failed(run(export.export_sprite(sprite, "/tmp/ase-pytest/err_out", "json")))
 
 

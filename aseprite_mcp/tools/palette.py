@@ -447,7 +447,7 @@ async def generate_color_ramp(
         return "lightness_range must be between 0 and 1"
 
     r, g, b = (c / 255 for c in rgb)
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    h, light, s = colorsys.rgb_to_hls(r, g, b)
 
     ramp = []
     mid = (steps - 1) / 2
@@ -455,7 +455,7 @@ async def generate_color_ramp(
         # t in [-0.5, 0.5]: negative = shadow side, positive = highlight side
         t = (i - mid) / (steps - 1) if steps > 1 else 0
         nh = (h - t * (hue_shift_degrees / 360)) % 1.0
-        nl = min(1.0, max(0.0, l + t * lightness_range))
+        nl = min(1.0, max(0.0, light + t * lightness_range))
         # Shadows slightly more saturated, highlights slightly less
         ns = min(1.0, max(0.0, s - t * 0.15))
         nr, ng, nb = colorsys.hls_to_rgb(nh, nl, ns)

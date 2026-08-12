@@ -24,7 +24,7 @@ _EXPORT_SCALE_MAX = 64
 async def export_sprite(
     filename: Annotated[str, Field(description="Name of the Aseprite file to export")],
     output_filename: Annotated[str, Field(description="Name of the output file")],
-    format: Annotated[
+    output_format: Annotated[
         str,
         Field(
             description='Output format, e.g. "png", "gif", "jpg" (default "png")',
@@ -35,15 +35,15 @@ async def export_sprite(
     if not await path_exists(filename):
         return f"File {filename} not found"
 
-    # Make sure format is lowercase
-    format = format.lower()
+    # Make sure output_format is lowercase
+    output_format = output_format.lower()
 
     # Ensure output filename has the correct extension
-    if not output_filename.lower().endswith(f".{format}"):
-        output_filename = f"{output_filename}.{format}"
+    if not output_filename.lower().endswith(f".{output_format}"):
+        output_filename = f"{output_filename}.{output_format}"
 
     # For animated exports
-    if format == "gif":
+    if output_format == "gif":
         args = ["--batch", filename, "--save-as", output_filename]
         success, output = AsepriteCommand.run_command(args)
     else:
@@ -52,7 +52,7 @@ async def export_sprite(
         success, output = AsepriteCommand.run_command(args)
 
     # Aseprite exits 0 even when it cannot write the requested format
-    # (e.g. format="json"). Confirm a file actually appeared. A multi-frame
+    # (e.g. output_format="json"). Confirm a file actually appeared. A multi-frame
     # sprite saved to a still format produces frame-numbered siblings
     # (out1.png, out2.png, ...) instead of the exact name, so accept those
     # too — same convention as export_frame.
@@ -64,8 +64,7 @@ async def export_sprite(
 
     if success:
         return f"Sprite exported successfully to {output_filename}"
-    else:
-        return f"Failed to export sprite: {output}"
+    return f"Failed to export sprite: {output}"
 
 
 @mcp.tool(

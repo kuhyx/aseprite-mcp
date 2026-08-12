@@ -4,6 +4,7 @@ Aseprite exposes no text API to Lua, so glyphs are rasterised here and the
 result is blitted into the sprite as an image.
 """
 
+import contextlib
 import os
 import tempfile
 from typing import Annotated
@@ -139,6 +140,7 @@ async def measure_text(
     Returns:
         width, height, advance_width, and the ink extents above/below the
         baseline.
+
     """
     try:
         f = fontlib.load_font(font)
@@ -319,12 +321,12 @@ async def draw_text(
         else "local target = app.activeLayer or spr.layers[1]"
     )
     create_layer = (
-        f'''
+        f"""
         if not target then
             if not {str(create_if_missing).lower()} then print("ERROR:Layer not found") return end
             target = spr:newLayer()
             target.name = "{lua_escape(layer_name)}"
-        end'''
+        end"""
         if layer_name
         else """
         if not target then print("ERROR:No layer to draw on") return end"""
@@ -356,10 +358,8 @@ async def draw_text(
     try:
         success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_name)
-        except OSError:
-            pass
 
     if not success:
         return f"Error drawing text: {output}"

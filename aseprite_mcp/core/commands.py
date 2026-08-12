@@ -50,9 +50,10 @@ class AsepriteCommand:
 
         Returns:
             tuple: (success, output) where success is a boolean and output is the command output
+
         """
         try:
-            cmd = [os.getenv("ASEPRITE_PATH", "aseprite")] + list(args)
+            cmd = [os.getenv("ASEPRITE_PATH", "aseprite"), *args]
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             return True, result.stdout
         except subprocess.CalledProcessError as e:
@@ -70,6 +71,7 @@ class AsepriteCommand:
 
         Returns:
             tuple: (success, output)
+
         """
         # Create a temporary file for the script
         with tempfile.NamedTemporaryFile(suffix=".lua", delete=False, mode="w") as tmp:
@@ -101,6 +103,7 @@ class AsepriteCommand:
         Returns:
             tuple: (success, output) where output is the error message
             when an ERROR: line was printed, or the raw stdout otherwise.
+
         """
         success, output = AsepriteCommand.execute_lua_script(script_content, filename)
         if not success:

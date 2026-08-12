@@ -210,11 +210,10 @@ async def set_tiles(
     if not tiles:
         return "Tiles list cannot be empty"
 
-    entries = []
-    for t in tiles:
-        entries.append(
-            f"{{{int(t.get('col', 0))},{int(t.get('row', 0))},{int(t.get('tile_index', 0))}}}"
-        )
+    entries = [
+        f"{{{int(t.get('col', 0))},{int(t.get('row', 0))},{int(t.get('tile_index', 0))}}}"
+        for t in tiles
+    ]
     tiles_lua = ", ".join(entries)
 
     safe_layer = lua_escape(layer_name)

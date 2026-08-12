@@ -47,13 +47,16 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageFont import FreeTypeFont
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from PIL.ImageFont import FreeTypeFont
 
 FONT_DIR = str(Path("~/.aseprite-mcp/fonts").expanduser())
 

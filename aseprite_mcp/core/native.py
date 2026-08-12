@@ -26,6 +26,7 @@ def build_native_command_script(
         layer_name: layer to activate first (empty = leave active layer)
         frame_index: 1-based frame to activate
         region: optional (x, y, w, h) to scope the command via a selection
+
     """
     safe_layer = lua_escape(layer_name)
     if region is not None:

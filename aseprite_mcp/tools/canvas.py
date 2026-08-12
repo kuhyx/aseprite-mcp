@@ -46,8 +46,7 @@ async def create_canvas(
 
     if success:
         return f"Canvas created successfully: {filename}"
-    else:
-        return f"Failed to create canvas: {output}"
+    return f"Failed to create canvas: {output}"
 
 
 @mcp.tool(
@@ -106,8 +105,7 @@ async def add_layer(
     if success:
         location = f" inside group '{group}'" if group else ""
         return f"Layer '{layer_name}' added{location} to {filename}"
-    else:
-        return f"Failed to add layer: {output}"
+    return f"Failed to add layer: {output}"
 
 
 @mcp.tool(
@@ -205,8 +203,7 @@ async def add_frame(
 
     if success:
         return f"New frame added successfully to {filename}"
-    else:
-        return f"Failed to add frame: {output}"
+    return f"Failed to add frame: {output}"
 
 
 @mcp.tool(
@@ -248,8 +245,7 @@ async def set_frame(
 
     if success:
         return f"Active frame set to {frame_index} in {filename}"
-    else:
-        return f"Failed to set frame: {output}"
+    return f"Failed to set frame: {output}"
 
 
 @mcp.tool(
@@ -296,8 +292,7 @@ async def set_frame_duration(
 
     if success:
         return f"Frame {frame_index} duration set to {duration_ms}ms in {filename}"
-    else:
-        return f"Failed to set frame duration: {output}"
+    return f"Failed to set frame duration: {output}"
 
 
 @mcp.tool(
@@ -354,5 +349,4 @@ async def set_layer(
 
     if success:
         return f"Active layer set to '{layer_name}' in {filename}"
-    else:
-        return f"Failed to set layer: {output}"
+    return f"Failed to set layer: {output}"

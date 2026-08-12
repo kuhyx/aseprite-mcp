@@ -405,6 +405,7 @@ async def list_convolution_matrices() -> str:
 
     Returns:
         JSON array of matrix resource names.
+
     """
     return json.dumps(sorted(CONVOLUTION_MATRICES))
 
@@ -435,6 +436,7 @@ async def extract_palette(
 
     Returns:
         JSON {colors: [#RRGGBB, ...], count}
+
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
