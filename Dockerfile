@@ -1,18 +1,14 @@
-# Use the latest Homebrew Docker image
-FROM ghcr.io/homebrew/brew:latest
+# Slim, apt-based image: far faster to build than bootstrapping Homebrew
+# just to get Python + uv.
+FROM python:3.13-slim
 
-# Install Python 3.13 and uv via Homebrew
-RUN brew install python@3.13 uv
-
-# Add Homebrew binaries to PATH
-ENV PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+RUN pip install --no-cache-dir uv
 
 # --- Optional Steam/Aseprite support ---
-# steamcmd lives in Ubuntu's multiverse component and needs the i386 arch
+# steamcmd lives in Debian's non-free component and needs the i386 arch
 # (it's a 32-bit bootstrapper) plus non-interactive EULA acceptance.
-USER root
 RUN dpkg --add-architecture i386 \
-	&& sed -i '/^Types: deb$/,/^Components:/ s/^Components: .*/Components: main restricted universe multiverse/' /etc/apt/sources.list.d/ubuntu.sources \
+	&& sed -i 's/^Components: .*/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
 	&& echo steam steam/question select "I AGREE" | debconf-set-selections \
 	&& echo steam steam/license note '' | debconf-set-selections \
 	&& apt-get update \
