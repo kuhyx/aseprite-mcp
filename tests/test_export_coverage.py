@@ -389,6 +389,14 @@ def test_export_sprite_exited_zero_no_file():
     assert "Aseprite exited 0 but wrote no file" in result
 
 
+def test_export_sprite_reports_subprocess_failure():
+    fresh = _fresh_sprite("export-sprite-fail")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (False, "boom")
+        result = run(export.export_sprite(fresh, f"{BASE}/export_sprite_fail_out.png"))
+    assert result == "Failed to export sprite: boom"
+
+
 def test_copy_sprite_reports_subprocess_failure():
     fresh = _fresh_sprite("copy-fail")
     with patch(
@@ -490,10 +498,29 @@ def test_export_tag_exited_zero_no_file():
     assert result == "Failed to export tag: Aseprite exited 0 but wrote no file"
 
 
-def test_export_tag_reports_subprocess_failure():
-    fresh = _fresh_sprite("tag-fail")
-    ok(run(animation.set_tag(fresh, "tagfail", 1, 1, "forward")))
+def test_export_tag_reports_tag_check_failure():
+    # The tag-existence check (execute_lua_script_checked) itself bottoms
+    # out in run_command, so mocking run_command with a single failing
+    # return value fails THAT call, not the later export call - this test
+    # exercises the tag-check's own "Failed to export tag" return, a
+    # distinct branch from the export-call failure below.
+    fresh = _fresh_sprite("tag-check-fail")
+    ok(run(animation.set_tag(fresh, "tagcheckfail", 1, 1, "forward")))
     with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
         m.return_value = (False, "boom")
-        result = run(export.export_tag(fresh, "tagfail", f"{BASE}/tag_fail.png"))
+        result = run(export.export_tag(fresh, "tagcheckfail", f"{BASE}/tag_fail.png"))
+    assert result == "Failed to export tag: boom"
+
+
+def test_export_tag_reports_export_call_subprocess_failure():
+    # First run_command call is the tag-existence check (must succeed so
+    # export_tag proceeds past line 313); second is the real --tag export
+    # call, which is the one this test forces to fail.
+    fresh = _fresh_sprite("tag-export-fail")
+    ok(run(animation.set_tag(fresh, "tagexportfail", 1, 1, "forward")))
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.side_effect = [(True, "OK"), (False, "boom")]
+        result = run(
+            export.export_tag(fresh, "tagexportfail", f"{BASE}/tag_export_fail.png")
+        )
     assert result == "Failed to export tag: boom"
