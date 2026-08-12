@@ -47,8 +47,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
@@ -306,7 +306,7 @@ class TrueTypeFont:
     ) -> tuple[set[Point], int]:
         """Rasterise `text`; x runs from the pen origin, y from the baseline."""
         ascent, descent = font.getmetrics()
-        advance = int(round(font.getlength(text)))
+        advance = round(font.getlength(text))
         box = font.getbbox(text)
         # Glyphs can overhang the advance on either side (italics, accents,
         # negative bearings), so leave room around the drawn string.

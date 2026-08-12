@@ -8,9 +8,14 @@ RUN brew install python@3.13 uv
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # --- Optional Steam/Aseprite support ---
-# Install steamcmd and minimal dependencies (Ubuntu base)
+# steamcmd lives in Ubuntu's multiverse component and needs the i386 arch
+# (it's a 32-bit bootstrapper) plus non-interactive EULA acceptance.
 USER root
-RUN apt-get update \
+RUN dpkg --add-architecture i386 \
+	&& sed -i '/^Types: deb$/,/^Components:/ s/^Components: .*/Components: main restricted universe multiverse/' /etc/apt/sources.list.d/ubuntu.sources \
+	&& echo steam steam/question select "I AGREE" | debconf-set-selections \
+	&& echo steam steam/license note '' | debconf-set-selections \
+	&& apt-get update \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 	   steamcmd lib32gcc-s1 ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*

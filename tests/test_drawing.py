@@ -1,4 +1,5 @@
 """Drawing tools added in this round (drawing.py)."""
+
 from conftest import ok, run
 
 from aseprite_mcp.tools import drawing, pixel_read

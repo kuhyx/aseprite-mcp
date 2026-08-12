@@ -7,11 +7,9 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from conftest import BASE, ok, run
 
 from aseprite_mcp.tools import analysis
-
 
 # --- render_onion_skin ---
 

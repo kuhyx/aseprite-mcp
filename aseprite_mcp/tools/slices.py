@@ -1,7 +1,8 @@
 import json
 import os
-from ..core.commands import AsepriteCommand, lua_escape
+
 from .. import mcp
+from ..core.commands import AsepriteCommand, lua_escape
 
 _FIND_SLICE = """
 local function find_slice(spr, name)
@@ -190,7 +191,7 @@ async def list_slices(filename: str) -> str:
     for line in output.splitlines():
         if not line.startswith("SLICE:"):
             continue
-        slices.append(json.loads(line[len("SLICE:"):]))
+        slices.append(json.loads(line[len("SLICE:") :]))
     return json.dumps(slices)
 
 

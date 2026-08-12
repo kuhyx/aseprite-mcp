@@ -1,8 +1,9 @@
 import os
+
+from .. import mcp
+from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
-from ..core.colors import parse_hex_color
-from .. import mcp
 
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
@@ -341,7 +342,7 @@ async def erase_color(
     count = "?"
     for line in output.splitlines():
         if line.startswith("COUNT:"):
-            count = line[len("COUNT:"):]
+            count = line[len("COUNT:") :]
     return (
         f"Erased {count} pixels of {color} on '{layer_name}' "
         f"frame {frame_index} in {filename}"

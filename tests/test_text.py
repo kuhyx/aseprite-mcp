@@ -6,6 +6,7 @@ TrueType tests need something installed, and they skip when nothing is found.
 
 import json
 import os
+from pathlib import Path
 
 import pytest
 from conftest import ok, run
@@ -141,13 +142,11 @@ def test_unmapped_characters_are_skipped(bitmap_font):
 
 def test_overrides_replace_a_sheet_glyph(tmp_path, bitmap_font):
     """font.json overrides let a caller repair a glyph the sheet gets wrong."""
-    spec = json.loads(open(os.path.join(bitmap_font, "font.json")).read())
+    spec = json.loads(Path(bitmap_font, "font.json").read_text())
     spec["overrides"] = {str(ord("A")): {"ascent": ASCENT, "rows": ["####"] * 5}}
     patched = tmp_path / "patched"
     patched.mkdir()
-    (patched / "sheet.png").write_bytes(
-        open(os.path.join(bitmap_font, "sheet.png"), "rb").read()
-    )
+    (patched / "sheet.png").write_bytes(Path(bitmap_font, "sheet.png").read_bytes())
     (patched / "font.json").write_text(json.dumps(spec))
 
     fontlib.clear_cache()
@@ -303,7 +302,7 @@ def test_list_fonts_reports_system_only(monkeypatch):
 
 
 def test_list_fonts_reports_no_fonts_found(monkeypatch):
-    monkeypatch.setattr(text.fontlib, "available_fonts", lambda: [])
+    monkeypatch.setattr(text.fontlib, "available_fonts", list)
     out = run(text.list_text_fonts())
     assert out == "No fonts found. Drop a .ttf into ~/.aseprite-mcp/fonts/."
 

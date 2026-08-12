@@ -1,5 +1,6 @@
 from .. import mcp
 
+
 @mcp.tool()
 async def animation_workflow_guide(use_case: str = "character") -> str:
     """Return a concise English guide for optimized animation workflows."""

@@ -1,4 +1,5 @@
 """list_slices must tolerate delimiter characters in a slice name."""
+
 import json
 
 from conftest import ok, run

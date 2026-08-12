@@ -16,7 +16,6 @@ from conftest import ok, run
 from aseprite_mcp.tools import animation, canvas, drawing, quality
 from aseprite_mcp.tools.quality import _parse_layer_frame_ranges, _parse_overlap_pairs
 
-
 # ---------------------------------------------------------------------------
 # _parse_layer_frame_ranges (pure function, no Aseprite process)
 # ---------------------------------------------------------------------------

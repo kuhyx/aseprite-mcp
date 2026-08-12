@@ -27,10 +27,16 @@ env/
 .DS_Store
 Thumbs.db
 
+# Local secrets/config - never bake into an image
+.env
+!sample.env
+
 # Test files and coverage
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # Documentation
 docs/

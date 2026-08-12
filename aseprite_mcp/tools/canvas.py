@@ -1,10 +1,14 @@
 import os
+
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER
-from .. import mcp
+
 
 @mcp.tool()
-async def create_canvas(width: int, height: int, filename: str = "canvas.aseprite") -> str:
+async def create_canvas(
+    width: int, height: int, filename: str = "canvas.aseprite"
+) -> str:
     """Create a new Aseprite canvas with specified dimensions.
 
     Args:
@@ -31,6 +35,7 @@ async def create_canvas(width: int, height: int, filename: str = "canvas.aseprit
         return f"Canvas created successfully: {filename}"
     else:
         return f"Failed to create canvas: {output}"
+
 
 @mcp.tool()
 async def add_layer(filename: str, layer_name: str, group: str = "") -> str:
@@ -76,6 +81,7 @@ async def add_layer(filename: str, layer_name: str, group: str = "") -> str:
         return f"Layer '{layer_name}' added{location} to {filename}"
     else:
         return f"Failed to add layer: {output}"
+
 
 @mcp.tool()
 async def add_group(filename: str, group_name: str, parent_group: str = "") -> str:
@@ -124,6 +130,7 @@ async def add_group(filename: str, group_name: str, parent_group: str = "") -> s
         return f"Group '{group_name}' created{location} in {filename}"
     return f"Failed to create group: {output}"
 
+
 @mcp.tool()
 async def add_frame(filename: str) -> str:
     """Add a new frame to the Aseprite file.
@@ -133,7 +140,7 @@ async def add_frame(filename: str) -> str:
     """
     if not os.path.exists(filename):
         return f"File {filename} not found"
-    
+
     script = """
     local spr = app.activeSprite
     if not spr then print("ERROR:No active sprite") return end
@@ -152,6 +159,7 @@ async def add_frame(filename: str) -> str:
         return f"New frame added successfully to {filename}"
     else:
         return f"Failed to add frame: {output}"
+
 
 @mcp.tool()
 async def set_frame(filename: str, frame_index: int) -> str:
@@ -187,6 +195,7 @@ async def set_frame(filename: str, frame_index: int) -> str:
         return f"Active frame set to {frame_index} in {filename}"
     else:
         return f"Failed to set frame: {output}"
+
 
 @mcp.tool()
 async def set_frame_duration(filename: str, frame_index: int, duration_ms: int) -> str:
@@ -226,8 +235,11 @@ async def set_frame_duration(filename: str, frame_index: int, duration_ms: int) 
     else:
         return f"Failed to set frame duration: {output}"
 
+
 @mcp.tool()
-async def set_layer(filename: str, layer_name: str, create_if_missing: bool = False) -> str:
+async def set_layer(
+    filename: str, layer_name: str, create_if_missing: bool = False
+) -> str:
     """Set the active layer by name.
 
     Args:

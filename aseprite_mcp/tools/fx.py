@@ -1,8 +1,9 @@
 import os
-from ..core.commands import AsepriteCommand, lua_escape
-from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET, HSL
-from ..core.colors import parse_hex_color
+
 from .. import mcp
+from ..core.colors import parse_hex_color
+from ..core.commands import AsepriteCommand, lua_escape
+from ..core.lua import FIND_LAYER, HSL, NORMALIZE_CEL, PSET
 
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
@@ -171,7 +172,7 @@ async def replace_color(
     count = "?"
     for line in output.splitlines():
         if line.startswith("COUNT:"):
-            count = line[len("COUNT:"):]
+            count = line[len("COUNT:") :]
     return (
         f"Replaced {count} pixels {from_color} -> {to_color} on '{layer_name}' "
         f"frame {frame_index} in {filename}"

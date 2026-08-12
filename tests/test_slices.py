@@ -1,4 +1,5 @@
 """Slice tools (slices.py)."""
+
 import json
 
 from conftest import ok, run

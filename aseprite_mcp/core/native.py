@@ -6,8 +6,9 @@ wrapper resolves + activates the target BEFORE the command, error-first,
 or a filter silently hits the wrong layer. Verified headless under
 `--batch` with `{ui=false}` (T0, 2026-06-18).
 """
-from .lua import FIND_LAYER
+
 from .commands import lua_escape
+from .lua import FIND_LAYER
 
 
 def build_native_command_script(

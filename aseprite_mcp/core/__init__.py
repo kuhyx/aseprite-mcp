@@ -1,1 +1,1 @@
-from . import commands
+from . import commands as commands

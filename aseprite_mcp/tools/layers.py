@@ -1,7 +1,8 @@
 import os
+
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
-from .. import mcp
 
 _BLEND_MODES = {
     "normal": "BlendMode.NORMAL",
@@ -164,7 +165,9 @@ async def duplicate_layer(
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
         location = f" inside group '{group}'" if group else ""
-        return f"Layer '{layer_name}' duplicated as '{final_name}'{location} in {filename}"
+        return (
+            f"Layer '{layer_name}' duplicated as '{final_name}'{location} in {filename}"
+        )
     return f"Failed to duplicate layer: {output}"
 
 

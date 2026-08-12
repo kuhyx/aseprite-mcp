@@ -1,16 +1,17 @@
 import os
-from typing import List
+
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER
-from .. import mcp
+
 
 @mcp.tool()
 async def copy_layers_between_sprites(
     source_filename: str,
     target_filename: str,
-    layer_names: List[str],
+    layer_names: list[str],
     replace: bool = True,
-    create_missing_frames: bool = True
+    create_missing_frames: bool = True,
 ) -> str:
     """Copy layers by name from a source sprite to a target sprite.
 
@@ -35,7 +36,7 @@ async def copy_layers_between_sprites(
     dst_path = lua_escape(target_filename.replace("\\", "/"))
     replace_flag = "true" if replace else "false"
     create_frames_flag = "true" if create_missing_frames else "false"
-    layers_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in layer_names]) + "}"
+    layers_lua = "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_names]) + "}"
 
     script = f"""
     local src = app.open("{src_path}")
@@ -109,7 +110,11 @@ async def copy_layers_between_sprites(
     if not success:
         return f"Failed to copy layers: {output}"
     missing = next(
-        (line[len("MISSING:"):] for line in output.splitlines() if line.startswith("MISSING:")),
+        (
+            line[len("MISSING:") :]
+            for line in output.splitlines()
+            if line.startswith("MISSING:")
+        ),
         None,
     )
     msg = f"Layers copied from {source_filename} to {target_filename}"

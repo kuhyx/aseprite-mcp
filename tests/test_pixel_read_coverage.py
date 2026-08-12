@@ -21,7 +21,6 @@ from conftest import ok, run
 
 from aseprite_mcp.tools import pixel_read
 
-
 # --- get_pixel_color ---
 
 

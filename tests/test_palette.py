@@ -1,4 +1,5 @@
 """Palette tools (palette.py)."""
+
 import json
 
 from conftest import ok, run

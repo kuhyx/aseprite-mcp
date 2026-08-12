@@ -7,10 +7,11 @@ layers by bare name and by "group/child" path, that a bare name prefers the
 shallower layer when names collide, and that the duplicate-name guard stays
 top-level (Aseprite permits the same name in different groups).
 """
-import pytest
 
+import pytest
 from conftest import BASE, ok, run
 
+from aseprite_mcp.core.commands import AsepriteCommand
 from aseprite_mcp.tools import (
     animation,
     canvas,
@@ -20,7 +21,6 @@ from aseprite_mcp.tools import (
     tilemap,
     transform,
 )
-from aseprite_mcp.core.commands import AsepriteCommand
 
 
 @pytest.fixture(scope="module")
@@ -48,7 +48,13 @@ def test_draw_reaches_nested_by_name(nested):
 
 
 def test_draw_reaches_nested_by_path(nested):
-    ok(run(drawing.draw_rectangle_at(nested, "GRP/inside", 1, 2, 2, 4, 4, "#00ff00", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                nested, "GRP/inside", 1, 2, 2, 4, 4, "#00ff00", True
+            )
+        )
+    )
 
 
 def test_visibility_reaches_nested(nested):  # animation.py converted loop
@@ -72,11 +78,19 @@ def test_ambiguous_bare_name_prefers_shallow(nested):
     # 'dupe' exists top-level and inside GRP; the bare name must resolve to the
     # shallower one, while the path targets the nested namesake.
     ok(run(drawing.draw_rectangle_at(nested, "dupe", 1, 0, 0, 2, 2, "#ff0000", True)))
-    ok(run(drawing.draw_rectangle_at(nested, "GRP/dupe", 1, 0, 0, 2, 2, "#0000ff", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                nested, "GRP/dupe", 1, 0, 0, 2, 2, "#0000ff", True
+            )
+        )
+    )
 
 
 def test_bogus_name_still_fails(nested):
-    result = run(drawing.draw_rectangle_at(nested, "NOPE", 1, 0, 0, 2, 2, "#ffffff", True))
+    result = run(
+        drawing.draw_rectangle_at(nested, "NOPE", 1, 0, 0, 2, 2, "#ffffff", True)
+    )
     assert str(result).startswith(("Failed", "ERROR")), result
 
 
@@ -114,11 +128,23 @@ def slashed(base_dir):
 def test_child_under_slash_named_group(slashed):
     # The group is literally named "abc/x"; its child "y" must resolve as
     # "abc/x/y" — the longest leading group name wins.
-    ok(run(drawing.draw_rectangle_at(slashed, "abc/x/y", 1, 0, 0, 4, 4, "#ffffff", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                slashed, "abc/x/y", 1, 0, 0, 4, 4, "#ffffff", True
+            )
+        )
+    )
 
 
 def test_real_path_backtracks_past_slash_name(slashed):
     # "abc/x/z" must still reach the genuine abc -> x -> z layer: the longest
     # prefix "abc/x" matches the sibling group but has no child "z", so the
     # walk backtracks to "abc" -> "x" -> "z".
-    ok(run(drawing.draw_rectangle_at(slashed, "abc/x/z", 1, 0, 0, 4, 4, "#00ff00", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                slashed, "abc/x/z", 1, 0, 0, 4, 4, "#00ff00", True
+            )
+        )
+    )

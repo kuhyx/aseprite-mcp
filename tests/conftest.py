@@ -8,6 +8,7 @@ Scratch files live under a fixed /tmp path (not pytest's tmp_path) so
 they resolve identically inside the Docker-wrapped Aseprite, which only
 mounts /tmp and /var/folders.
 """
+
 import asyncio
 import os
 import shutil

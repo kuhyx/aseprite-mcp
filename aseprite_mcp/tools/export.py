@@ -1,11 +1,15 @@
 import glob
 import os
+
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL
-from .. import mcp
+
 
 @mcp.tool()
-async def export_sprite(filename: str, output_filename: str, format: str = "png") -> str:
+async def export_sprite(
+    filename: str, output_filename: str, format: str = "png"
+) -> str:
     """Export the Aseprite file to another format.
 
     Args:
@@ -15,14 +19,14 @@ async def export_sprite(filename: str, output_filename: str, format: str = "png"
     """
     if not os.path.exists(filename):
         return f"File {filename} not found"
-    
+
     # Make sure format is lowercase
     format = format.lower()
-    
+
     # Ensure output filename has the correct extension
     if not output_filename.lower().endswith(f".{format}"):
         output_filename = f"{output_filename}.{format}"
-    
+
     # For animated exports
     if format == "gif":
         args = ["--batch", filename, "--save-as", output_filename]
@@ -48,8 +52,11 @@ async def export_sprite(filename: str, output_filename: str, format: str = "png"
     else:
         return f"Failed to export sprite: {output}"
 
+
 @mcp.tool()
-async def copy_sprite(filename: str, output_filename: str, overwrite: bool = False) -> str:
+async def copy_sprite(
+    filename: str, output_filename: str, overwrite: bool = False
+) -> str:
     """Copy a sprite to a new Aseprite file.
 
     Args:
@@ -118,10 +125,14 @@ async def export_frame(
 
     f0 = frame_index - 1  # CLI --frame-range is 0-based
     args = [
-        "--batch", filename,
-        "--frame-range", f"{f0},{f0}",
-        "--scale", str(scale),
-        "--save-as", output_filename,
+        "--batch",
+        filename,
+        "--frame-range",
+        f"{f0},{f0}",
+        "--scale",
+        str(scale),
+        "--save-as",
+        output_filename,
     ]
     success, output = AsepriteCommand.run_command(args)
     if not success:
@@ -201,7 +212,11 @@ async def export_spritesheet(
         if not ok:
             return f"Failed to resolve tag: {out}"
         frame_range = next(
-            (line[len("RANGE:"):] for line in out.splitlines() if line.startswith("RANGE:")),
+            (
+                line[len("RANGE:") :]
+                for line in out.splitlines()
+                if line.startswith("RANGE:")
+            ),
             None,
         )
         if frame_range is None:
@@ -261,8 +276,10 @@ async def export_layers(
     if include_hidden:
         args.append("--all-layers")
     args += [
-        "--split-layers", filename,
-        "--save-as", os.path.join(output_directory, "{layer}.png"),
+        "--split-layers",
+        filename,
+        "--save-as",
+        os.path.join(output_directory, "{layer}.png"),
     ]
     success, output = AsepriteCommand.run_command(args)
     if not success:

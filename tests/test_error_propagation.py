@@ -6,6 +6,7 @@ message from their input args even when the script did nothing. Every call
 below feeds invalid input and asserts the tool now reports failure instead
 of a fabricated success.
 """
+
 from conftest import ok, run
 
 from aseprite_mcp.tools import (
@@ -29,6 +30,7 @@ def failed(result):
 
 # --- issue #15 reproduction table: each must now fail loudly ---
 
+
 def test_set_layer_visibility_missing_layer(sprite):
     failed(run(animation.set_layer_visibility(sprite, "NOT_A_LAYER", False)))
 
@@ -42,8 +44,13 @@ def test_set_tag_range_out_of_bounds(sprite):
 
 
 def test_remap_colors_missing_layer(sprite):
-    failed(run(palette.remap_colors_in_cel_range(
-        sprite, "NOSUCHLAYER", 1, 1, [{"from": "#D04648", "to": "#000000"}])))
+    failed(
+        run(
+            palette.remap_colors_in_cel_range(
+                sprite, "NOSUCHLAYER", 1, 1, [{"from": "#D04648", "to": "#000000"}]
+            )
+        )
+    )
 
 
 def test_ensure_layers_present_all_missing(sprite):
@@ -62,11 +69,23 @@ def test_export_tag_missing_tag(sprite):
 
 
 def test_export_spritesheet_missing_tag(sprite):
-    failed(run(export.export_spritesheet(
-        sprite, "/tmp/ase-pytest/err_sheet.png", "horizontal", "", 1, 0, "NO_SUCH_TAG")))
+    failed(
+        run(
+            export.export_spritesheet(
+                sprite,
+                "/tmp/ase-pytest/err_sheet.png",
+                "horizontal",
+                "",
+                1,
+                0,
+                "NO_SUCH_TAG",
+            )
+        )
+    )
 
 
 # --- readers surfaced a hard error as data (read as success); now fail loudly ---
+
 
 def test_get_pixel_color_missing_layer(sprite):
     failed(run(pixel_read.get_pixel_color(sprite, 0, 0, "NO_SUCH_LAYER")))
@@ -77,6 +96,7 @@ def test_get_pixels_rect_missing_layer(sprite):
 
 
 # --- copy_layers_between_sprites: all-missing fails; partial surfaces skips ---
+
 
 def test_copy_layers_all_missing_fails(sprite, base_dir):
     target = f"{base_dir}/copy_target.aseprite"
@@ -94,6 +114,7 @@ def test_copy_layers_partial_surfaces_skipped(sprite, base_dir):
 
 # --- new guards added alongside the conversion ---
 
+
 def test_crop_fully_outside_canvas_rejected(sprite):
     failed(run(transform.crop_canvas(sprite, 999, 999, 10, 10)))
 
@@ -103,4 +124,6 @@ def test_flip_missing_layer(sprite):
 
 
 def test_draw_line_missing_layer(sprite):
-    failed(run(drawing.draw_line_at(sprite, "NO_SUCH_LAYER", 1, 0, 0, 5, 5, "#ffffff", 1)))
+    failed(
+        run(drawing.draw_line_at(sprite, "NO_SUCH_LAYER", 1, 0, 0, 5, 5, "#ffffff", 1))
+    )

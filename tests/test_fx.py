@@ -1,4 +1,5 @@
 """Pixel-art effect tools (fx.py)."""
+
 from conftest import ok, run
 
 from aseprite_mcp.tools import drawing, fx, pixel_read
@@ -21,10 +22,20 @@ def test_adjust_hsl(sprite):
 
 
 def test_apply_dither_gradient(sprite):
-    ok(run(fx.apply_dither_gradient(
-        sprite, "body", 1, 0, 24, 32, 8, "#30346D", "#597DCE")))
+    ok(
+        run(
+            fx.apply_dither_gradient(
+                sprite, "body", 1, 0, 24, 32, 8, "#30346D", "#597DCE"
+            )
+        )
+    )
 
 
 def test_apply_dither_pattern(sprite):
-    ok(run(fx.apply_dither_pattern(
-        sprite, "body", 1, 0, 0, 8, 8, "#854C30", "#D2AA99", 0.5)))
+    ok(
+        run(
+            fx.apply_dither_pattern(
+                sprite, "body", 1, 0, 0, 8, 8, "#854C30", "#D2AA99", 0.5
+            )
+        )
+    )

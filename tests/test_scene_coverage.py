@@ -13,7 +13,6 @@ walks above cwd (os.path.relpath keeps a leading ".." through normpath).
 import os
 
 import pytest
-
 from conftest import BASE, ok, run
 
 from aseprite_mcp.tools import canvas, scene

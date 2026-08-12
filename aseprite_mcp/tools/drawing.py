@@ -1,9 +1,10 @@
 import os
-from typing import List, Dict, Any
+from typing import Any
+
+from .. import mcp
+from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
-from ..core.colors import parse_hex_color
-from .. import mcp
 
 
 def _parse_write_counts(output: str, total: int) -> tuple[int, int]:
@@ -30,7 +31,7 @@ def _parse_hex_color(value: str) -> tuple[int, int, int, int] | None:
 
 
 @mcp.tool()
-async def draw_pixels(filename: str, pixels: List[Dict[str, Any]]) -> str:
+async def draw_pixels(filename: str, pixels: list[dict[str, Any]]) -> str:
     """Draw pixels on the canvas with specified colors.
 
     Args:
@@ -382,7 +383,7 @@ async def draw_pixels_at(
     filename: str,
     layer_name: str,
     frame_index: int,
-    pixels: List[Dict[str, Any]],
+    pixels: list[dict[str, Any]],
     create_if_missing: bool = True,
 ) -> str:
     """Draw pixels on a specific layer/frame.
@@ -845,7 +846,7 @@ async def draw_polygon(
     filename: str,
     layer_name: str,
     frame_index: int,
-    points: List[Dict[str, int]],
+    points: list[dict[str, int]],
     color: str = "#000000",
     fill: bool = False,
     create_if_missing: bool = True,
@@ -970,7 +971,7 @@ async def draw_path(
     filename: str,
     layer_name: str,
     frame_index: int,
-    points: List[Dict[str, int]],
+    points: list[dict[str, int]],
     color: str = "#000000",
     thickness: int = 1,
     create_if_missing: bool = True,

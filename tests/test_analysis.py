@@ -1,4 +1,5 @@
 """Visual feedback tools (analysis.py)."""
+
 import json
 import os
 

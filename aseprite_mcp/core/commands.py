@@ -1,6 +1,7 @@
+import os
 import subprocess
 import tempfile
-import os
+
 import dotenv
 
 _ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))

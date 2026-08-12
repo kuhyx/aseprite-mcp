@@ -1,11 +1,11 @@
 import colorsys
 import json
 import os
-from typing import List
+
+from .. import mcp
+from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
-from ..core.colors import parse_hex_color
-from .. import mcp
 
 # Well-known retro/pixel-art palettes.
 PALETTE_PRESETS = {
@@ -145,7 +145,7 @@ async def get_palette(filename: str) -> str:
 
 
 @mcp.tool()
-async def set_palette(filename: str, colors: List[str]) -> str:
+async def set_palette(filename: str, colors: list[str]) -> str:
     """Set the active sprite palette using a list of hex colors."""
     if not os.path.exists(filename):
         return f"File {filename} not found"
@@ -189,7 +189,7 @@ async def remap_colors_in_cel_range(
     layer_name: str,
     start_frame: int,
     end_frame: int,
-    mappings: List[dict[str, str]],
+    mappings: list[dict[str, str]],
     create_missing_cels: bool = False,
     source_frame_index: int | None = None,
 ) -> str:
@@ -373,11 +373,7 @@ async def generate_color_ramp(
         # Shadows slightly more saturated, highlights slightly less
         ns = min(1.0, max(0.0, s - t * 0.15))
         nr, ng, nb = colorsys.hls_to_rgb(nh, nl, ns)
-        ramp.append(
-            "#{:02X}{:02X}{:02X}".format(
-                round(nr * 255), round(ng * 255), round(nb * 255)
-            )
-        )
+        ramp.append(f"#{round(nr * 255):02X}{round(ng * 255):02X}{round(nb * 255):02X}")
     return json.dumps(ramp)
 
 

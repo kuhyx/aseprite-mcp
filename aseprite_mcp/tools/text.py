@@ -6,15 +6,14 @@ result is blitted into the sprite as an image.
 
 import os
 import tempfile
-from typing import Optional
 
 from PIL import Image
 
-from ..core.commands import AsepriteCommand, lua_escape
-from ..core.colors import parse_hex_color
-from ..core.lua import FIND_LAYER, NORMALIZE_CEL
-from ..core import fonts as fontlib
 from .. import mcp
+from ..core import fonts as fontlib
+from ..core.colors import parse_hex_color
+from ..core.commands import AsepriteCommand, lua_escape
+from ..core.lua import FIND_LAYER, NORMALIZE_CEL
 
 _ANCHORS = (
     "topleft",
@@ -69,7 +68,8 @@ async def list_text_fonts() -> str:
     """
     try:
         found = fontlib.available_fonts()
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - tool boundary: report any
+        # unexpected error to the caller instead of crashing the MCP server
         return f"ERROR: {exc}"
     if not found:
         return "No fonts found. Drop a .ttf into ~/.aseprite-mcp/fonts/."
@@ -117,7 +117,8 @@ async def measure_text(
     try:
         f = fontlib.load_font(font)
         _, m = fontlib.shape(text, f, size, letter_spacing, bold, antialias)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - tool boundary: report any
+        # unexpected error to the caller instead of crashing the MCP server
         return f"ERROR: {exc}"
     return (
         f"width={m['width']} height={m['height']} advance_width={m['advance_width']} "
@@ -135,15 +136,15 @@ async def draw_text(
     font: str,
     size: int = 1,
     color: str = "#FFFFFF",
-    layer_name: Optional[str] = None,
+    layer_name: str | None = None,
     frame_index: int = 1,
     anchor: str = "topleft",
     letter_spacing: int = 0,
     bold: int = 0,
-    outline_color: Optional[str] = None,
+    outline_color: str | None = None,
     outline_width: int = 1,
     outline_diagonal: bool = True,
-    shadow_color: Optional[str] = None,
+    shadow_color: str | None = None,
     shadow_dx: int = 1,
     shadow_dy: int = 1,
     antialias: bool = False,
@@ -206,7 +207,8 @@ async def draw_text(
     try:
         f = fontlib.load_font(font)
         ink, metrics = fontlib.shape(text, f, size, letter_spacing, bold, antialias)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - tool boundary: report any
+        # unexpected error to the caller instead of crashing the MCP server
         return f"ERROR: {exc}"
     if not ink:
         return "OK: nothing to draw (text has no visible glyphs)"
@@ -255,13 +257,13 @@ async def draw_text(
         for gx, gy in group:
             pixels[gx - min_x, gy - min_y] = rgba
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    tmp.close()
-    stamp.save(tmp.name)
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        tmp_name = tmp.name
+    stamp.save(tmp_name)
 
     blit_x = origin_x + min_x
     blit_y = origin_y + min_y
-    safe_png = lua_escape(os.path.abspath(tmp.name).replace("\\", "/"))
+    safe_png = lua_escape(os.path.abspath(tmp_name).replace("\\", "/"))
     layer_lookup = (
         f'local target = find_layer(spr, "{lua_escape(layer_name)}")'
         if layer_name
@@ -306,7 +308,7 @@ async def draw_text(
         success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     finally:
         try:
-            os.unlink(tmp.name)
+            os.unlink(tmp_name)
         except OSError:
             pass
 

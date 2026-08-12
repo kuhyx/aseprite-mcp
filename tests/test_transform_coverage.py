@@ -10,7 +10,6 @@ import json
 import os
 
 import pytest
-
 from conftest import BASE, ok, run
 
 from aseprite_mcp.tools import analysis, animation, canvas, drawing, transform

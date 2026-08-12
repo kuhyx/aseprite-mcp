@@ -1,7 +1,8 @@
 import json
 import os
-from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
+
 from .. import mcp
+from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 
 # Render a frame of the (cloned, flattened) sprite into a canvas-sized
 # RGB image. Used by the analysis tools so layer offsets and trimmed

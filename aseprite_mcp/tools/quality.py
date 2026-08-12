@@ -1,10 +1,10 @@
 import os
-import json
-from typing import List
-from ..core.commands import AsepriteCommand, lua_escape
-from .. import mcp
 
-def _parse_layer_frame_ranges(layer_frame_ranges: List[str] | None) -> str:
+from .. import mcp
+from ..core.commands import AsepriteCommand, lua_escape
+
+
+def _parse_layer_frame_ranges(layer_frame_ranges: list[str] | None) -> str:
     ranges = {}
     if layer_frame_ranges:
         for entry in layer_frame_ranges:
@@ -31,11 +31,12 @@ def _parse_layer_frame_ranges(layer_frame_ranges: List[str] | None) -> str:
     ranges_lua = "{"
     for layer, spans in ranges.items():
         span_list = ",".join([f"{{{s},{e}}}" for s, e in spans])
-        ranges_lua += f"[\"{layer}\"]={{{span_list}}},"
+        ranges_lua += f'["{layer}"]={{{span_list}}},'
     ranges_lua += "}"
     return ranges_lua
 
-def _parse_overlap_pairs(overlap_pairs: List[str] | None) -> str:
+
+def _parse_overlap_pairs(overlap_pairs: list[str] | None) -> str:
     pairs = []
     if overlap_pairs:
         for entry in overlap_pairs:
@@ -51,14 +52,15 @@ def _parse_overlap_pairs(overlap_pairs: List[str] | None) -> str:
             right = right.strip()
             if left and right:
                 pairs.append((left, right))
-    return "{" + ",".join([f"{{\"{a}\",\"{b}\"}}" for a, b in pairs]) + "}"
+    return "{" + ",".join([f'{{"{a}","{b}"}}' for a, b in pairs]) + "}"
+
 
 @mcp.tool()
 async def ensure_layers_present(
     filename: str,
-    layer_names: List[str],
+    layer_names: list[str],
     start_frame: int = 1,
-    end_frame: int | None = None
+    end_frame: int | None = None,
 ) -> str:
     """Ensure cels exist for layers across a frame range."""
     if not os.path.exists(filename):
@@ -67,7 +69,7 @@ async def ensure_layers_present(
         return "Layer names list cannot be empty"
 
     end_frame_val = "nil" if end_frame is None else str(end_frame)
-    layers_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in layer_names]) + "}"
+    layers_lua = "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_names]) + "}"
 
     script = """
     local spr = app.activeSprite
@@ -110,8 +112,7 @@ async def ensure_layers_present(
     """
 
     script = (
-        script
-        .replace("__START__", str(start_frame))
+        script.replace("__START__", str(start_frame))
         .replace("__END__", end_frame_val)
         .replace("__LAYERS__", layers_lua)
     )
@@ -124,12 +125,13 @@ async def ensure_layers_present(
         )
     return f"Failed to ensure cels: {output}"
 
+
 @mcp.tool()
 async def validate_scene(
     filename: str,
-    required_layers: List[str],
+    required_layers: list[str],
     start_frame: int = 1,
-    end_frame: int | None = None
+    end_frame: int | None = None,
 ) -> str:
     """Validate presence of layers and cels across a frame range.
 
@@ -141,7 +143,9 @@ async def validate_scene(
         return "Required layers list cannot be empty"
 
     end_frame_val = "nil" if end_frame is None else str(end_frame)
-    layers_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in required_layers]) + "}"
+    layers_lua = (
+        "{" + ",".join([f'"{lua_escape(name)}"' for name in required_layers]) + "}"
+    )
 
     script = """
     local spr = app.activeSprite
@@ -199,8 +203,7 @@ async def validate_scene(
     """
 
     script = (
-        script
-        .replace("__START__", str(start_frame))
+        script.replace("__START__", str(start_frame))
         .replace("__END__", end_frame_val)
         .replace("__LAYERS__", layers_lua)
     )
@@ -210,18 +213,19 @@ async def validate_scene(
         return output
     return f"Failed to validate scene: {output}"
 
+
 @mcp.tool()
 async def audit_animation(
     filename: str,
     start_frame: int = 1,
     end_frame: int | None = None,
-    layer_names: List[str] | None = None,
-    overlap_pairs: List[str] | None = None,
-    layer_frame_ranges: List[str] | None = None,
+    layer_names: list[str] | None = None,
+    overlap_pairs: list[str] | None = None,
+    layer_frame_ranges: list[str] | None = None,
     report_cels: bool = False,
     report_bounds: bool = False,
     max_overlaps: int = 200,
-    max_out_of_range: int = 200
+    max_out_of_range: int = 200,
 ) -> str:
     """Audit animation frames for overlaps and out-of-range layer activity.
 
@@ -240,7 +244,9 @@ async def audit_animation(
 
     layers_lua = "nil"
     if layer_names:
-        layers_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in layer_names]) + "}"
+        layers_lua = (
+            "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_names]) + "}"
+        )
 
     pairs_lua = _parse_overlap_pairs(overlap_pairs)
     ranges_lua = _parse_layer_frame_ranges(layer_frame_ranges)
@@ -446,23 +452,24 @@ async def audit_animation(
         return output
     return f"Failed to audit animation: {output}"
 
+
 @mcp.tool()
 async def animation_sanitize(
     filename: str,
     start_frame: int = 1,
     end_frame: int | None = None,
-    layer_names: List[str] | None = None,
-    layer_order: List[str] | None = None,
-    layer_frame_ranges: List[str] | None = None,
-    ensure_layers: List[str] | None = None,
-    overlap_pairs: List[str] | None = None,
+    layer_names: list[str] | None = None,
+    layer_order: list[str] | None = None,
+    layer_frame_ranges: list[str] | None = None,
+    ensure_layers: list[str] | None = None,
+    overlap_pairs: list[str] | None = None,
     report_bounds: bool = False,
     max_overlaps: int = 200,
     ignore_full_canvas_overlaps: bool = True,
     out_of_range_action: str = "set_opacity_zero",
     out_of_range_opacity: int = 0,
     report_only: bool = False,
-    include_stats: bool = True
+    include_stats: bool = True,
 ) -> str:
     """Normalize animation consistency and optionally apply fixes.
 
@@ -486,15 +493,21 @@ async def animation_sanitize(
 
     layers_lua = "nil"
     if layer_names:
-        layers_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in layer_names]) + "}"
+        layers_lua = (
+            "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_names]) + "}"
+        )
 
     order_lua = "nil"
     if layer_order:
-        order_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in layer_order]) + "}"
+        order_lua = (
+            "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_order]) + "}"
+        )
 
     ensure_lua = "nil"
     if ensure_layers:
-        ensure_lua = "{" + ",".join([f"\"{lua_escape(name)}\"" for name in ensure_layers]) + "}"
+        ensure_lua = (
+            "{" + ",".join([f'"{lua_escape(name)}"' for name in ensure_layers]) + "}"
+        )
 
     ranges_lua = _parse_layer_frame_ranges(layer_frame_ranges)
     pairs_lua = _parse_overlap_pairs(overlap_pairs)

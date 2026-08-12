@@ -12,10 +12,10 @@ General value (upstream-able): nothing Chimera-specific here.
 import json
 import os
 
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.native import build_native_command_script
 from .fx import _parse_hex_color
-from .. import mcp
 
 # Built-in convolution-matrix resource names (Aseprite data/convmatr.def).
 CONVOLUTION_MATRICES = frozenset(

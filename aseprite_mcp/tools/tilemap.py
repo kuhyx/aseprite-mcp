@@ -1,9 +1,10 @@
 import json
 import os
-from typing import List, Dict, Any
+from typing import Any
+
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
-from .. import mcp
 
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
@@ -84,7 +85,7 @@ async def draw_on_tile(
     filename: str,
     layer_name: str,
     tile_index: int,
-    pixels: List[Dict[str, Any]],
+    pixels: list[dict[str, Any]],
 ) -> str:
     """Draw pixels onto a tile in a tilemap layer's tileset.
 
@@ -167,7 +168,7 @@ async def set_tiles(
     filename: str,
     layer_name: str,
     frame_index: int,
-    tiles: List[Dict[str, Any]],
+    tiles: list[dict[str, Any]],
 ) -> str:
     """Place tiles on a tilemap layer by grid position.
 
@@ -319,9 +320,13 @@ async def get_tile_at(
 
     for line in output.splitlines():
         if line.startswith("TILE:"):
-            return json.dumps({
-                "col": col, "row": row, "tile_index": int(line[len("TILE:"):]),
-            })
+            return json.dumps(
+                {
+                    "col": col,
+                    "row": row,
+                    "tile_index": int(line[len("TILE:") :]),
+                }
+            )
     return "No tile data returned"
 
 
@@ -364,9 +369,16 @@ async def get_tilemap_info(filename: str, layer_name: str) -> str:
 
     for line in output.splitlines():
         if line.startswith("INFO:"):
-            tw, th, count, cols, rows = [int(v) for v in line[len("INFO:"):].split(",")]
-            return json.dumps({
-                "tile_width": tw, "tile_height": th, "tile_count": count,
-                "map_cols": cols, "map_rows": rows,
-            })
+            tw, th, count, cols, rows = [
+                int(v) for v in line[len("INFO:") :].split(",")
+            ]
+            return json.dumps(
+                {
+                    "tile_width": tw,
+                    "tile_height": th,
+                    "tile_count": count,
+                    "map_cols": cols,
+                    "map_rows": rows,
+                }
+            )
     return "No tilemap data returned"

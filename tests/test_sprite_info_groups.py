@@ -1,4 +1,5 @@
 """get_sprite_info enumerates nested (grouped) layers with a parent field."""
+
 import json
 
 from conftest import ok, run

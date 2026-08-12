@@ -1,9 +1,10 @@
 import json
 import os
+
+from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
 from .analysis import _FLATTEN_FRAME
-from .. import mcp
 
 
 @mcp.tool()
@@ -164,11 +165,17 @@ async def get_pixels_rect(
         if line.startswith("PIXEL:"):
             parts = line[6:].split(",")
             px, py, r, g, b, a = [int(p) for p in parts]
-            pixels.append({
-                "x": px, "y": py,
-                "hex": f"#{r:02x}{g:02x}{b:02x}",
-                "r": r, "g": g, "b": b, "a": a,
-            })
+            pixels.append(
+                {
+                    "x": px,
+                    "y": py,
+                    "hex": f"#{r:02x}{g:02x}{b:02x}",
+                    "r": r,
+                    "g": g,
+                    "b": b,
+                    "a": a,
+                }
+            )
 
     if not pixels:
         return "No pixel data returned"
@@ -176,7 +183,9 @@ async def get_pixels_rect(
 
 
 @mcp.tool()
-async def get_composite_pixel(filename: str, x: int, y: int, frame_index: int = 1) -> str:
+async def get_composite_pixel(
+    filename: str, x: int, y: int, frame_index: int = 1
+) -> str:
     """Read the RGBA colour VISIBLE at a pixel (flattened composite of all layers).
 
     Unlike get_pixel_color (which reads a single cel), this composites every
@@ -289,11 +298,17 @@ async def get_composite_rect(
             return f"Failed to read composite pixels: {line[6:]}"
         if line.startswith("PIXEL:"):
             px, py, r, g, b, a = (int(p) for p in line[6:].split(","))
-            pixels.append({
-                "x": px, "y": py,
-                "hex": f"#{r:02x}{g:02x}{b:02x}",
-                "r": r, "g": g, "b": b, "a": a,
-            })
+            pixels.append(
+                {
+                    "x": px,
+                    "y": py,
+                    "hex": f"#{r:02x}{g:02x}{b:02x}",
+                    "r": r,
+                    "g": g,
+                    "b": b,
+                    "a": a,
+                }
+            )
     if not pixels:
         return "No pixel data returned"
     return json.dumps(pixels)
