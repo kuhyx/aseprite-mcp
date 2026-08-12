@@ -48,8 +48,11 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from collections.abc import Iterator
+from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
+from PIL.ImageFont import FreeTypeFont
 
 FONT_DIR = os.path.expanduser("~/.aseprite-mcp/fonts")
 
@@ -108,7 +111,7 @@ class BitmapFont:
         self.letter_gap = int(spec.get("letter_gap", 1))
         self.space_width = int(spec.get("space_width", 3))
         self._cache: dict[int, Glyph | None] = {}
-        self._sheets: list[dict] = []
+        self._sheets: list[dict[str, Any]] = []
         self._index: dict[int, tuple[int, int, int]] = {}
 
         for sheet in spec.get("sheets") or ():
@@ -178,7 +181,7 @@ class BitmapFont:
 
         def is_background(x: int, y: int) -> bool:
             pixel = px[x, y]
-            return (
+            return bool(
                 pixel[3] == 255
                 and pixel[0] == 255
                 and pixel[1] == 255
@@ -299,7 +302,7 @@ class TrueTypeFont:
 
     @staticmethod
     def _raster(
-        font, text: str, antialias: bool, threshold: int
+        font: FreeTypeFont, text: str, antialias: bool, threshold: int
     ) -> tuple[set[Point], int]:
         """Rasterise `text`; x runs from the pen origin, y from the baseline."""
         ascent, descent = font.getmetrics()
@@ -308,8 +311,8 @@ class TrueTypeFont:
         # Glyphs can overhang the advance on either side (italics, accents,
         # negative bearings), so leave room around the drawn string.
         pad = max(8, int(getattr(font, "size", 0) or 0))
-        width = max(1, max(box[2], advance) + pad * 2)
-        height = max(1, ascent + descent + pad * 2)
+        width = int(max(1, max(box[2], advance) + pad * 2))
+        height = int(max(1, ascent + descent + pad * 2))
 
         canvas = Image.new("L", (width, height), 0)
         ImageDraw.Draw(canvas).text((pad, pad), text, font=font, fill=255)
@@ -317,12 +320,15 @@ class TrueTypeFont:
         assert px is not None  # freshly created image, always loadable
 
         cutoff = 1 if antialias else threshold
-        ink = {
-            (x - pad, y - pad - ascent)
-            for y in range(height)
-            for x in range(width)
-            if px[x, y] >= cutoff
-        }
+        ink = set()
+        for y in range(height):
+            for x in range(width):
+                # "L" mode is single-channel, so this is always an int, but
+                # PixelAccess.__getitem__ is typed for every image mode.
+                value = px[x, y]
+                assert isinstance(value, int)
+                if value >= cutoff:
+                    ink.add((x - pad, y - pad - ascent))
         return ink, advance
 
 
@@ -331,7 +337,7 @@ class TrueTypeFont:
 # ---------------------------------------------------------------------------
 
 
-def _iter_user_fonts():
+def _iter_user_fonts() -> Iterator[tuple[str, str, str]]:
     if not os.path.isdir(FONT_DIR):
         return
     for entry in sorted(os.listdir(FONT_DIR)):
@@ -342,7 +348,7 @@ def _iter_user_fonts():
             yield os.path.splitext(entry)[0], full, "truetype"
 
 
-def _iter_system_fonts():
+def _iter_system_fonts() -> Iterator[tuple[str, str, str]]:
     for directory in _SYSTEM_FONT_DIRS:
         if not os.path.isdir(directory):
             continue
@@ -359,10 +365,10 @@ def _iter_system_fonts():
                 )
 
 
-def available_fonts() -> list[dict]:
+def available_fonts() -> list[dict[str, str]]:
     """User fonts first, then system fonts, de-duplicated by name."""
     seen: set[str] = set()
-    found: list[dict] = []
+    found: list[dict[str, str]] = []
     for source, iterator in (
         ("user", _iter_user_fonts()),
         ("system", _iter_system_fonts()),
@@ -437,7 +443,7 @@ def shape(
     bold: int = 0,
     antialias: bool = False,
     threshold: int = 128,
-) -> tuple[set[Point], dict]:
+) -> tuple[set[Point], dict[str, int]]:
     """Rasterise `text` and report its metrics.
 
     Returns (ink, metrics). Ink coordinates run from the pen origin on x and
@@ -446,7 +452,7 @@ def shape(
     if bold < 0:
         raise FontError("bold must be >= 0")
 
-    if font.is_bitmap:
+    if isinstance(font, BitmapFont):
         if size < 1:
             raise FontError(
                 "size is an integer scale factor for bitmap fonts; must be >= 1"

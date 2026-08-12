@@ -14,39 +14,101 @@ PALETTE_PRESETS = {
     "grayscale_4": ["#000000", "#555555", "#AAAAAA", "#FFFFFF"],
     "cga": ["#000000", "#55FFFF", "#FF55FF", "#FFFFFF"],
     "pico8": [
-        "#000000", "#1D2B53", "#7E2553", "#008751",
-        "#AB5236", "#5F574F", "#C2C3C7", "#FFF1E8",
-        "#FF004D", "#FFA300", "#FFEC27", "#00E436",
-        "#29ADFF", "#83769C", "#FF77A8", "#FFCCAA",
+        "#000000",
+        "#1D2B53",
+        "#7E2553",
+        "#008751",
+        "#AB5236",
+        "#5F574F",
+        "#C2C3C7",
+        "#FFF1E8",
+        "#FF004D",
+        "#FFA300",
+        "#FFEC27",
+        "#00E436",
+        "#29ADFF",
+        "#83769C",
+        "#FF77A8",
+        "#FFCCAA",
     ],
     "c64": [
-        "#000000", "#FFFFFF", "#880000", "#AAFFEE",
-        "#CC44CC", "#00CC55", "#0000AA", "#EEEE77",
-        "#DD8855", "#664400", "#FF7777", "#333333",
-        "#777777", "#AAFF66", "#0088FF", "#BBBBBB",
+        "#000000",
+        "#FFFFFF",
+        "#880000",
+        "#AAFFEE",
+        "#CC44CC",
+        "#00CC55",
+        "#0000AA",
+        "#EEEE77",
+        "#DD8855",
+        "#664400",
+        "#FF7777",
+        "#333333",
+        "#777777",
+        "#AAFF66",
+        "#0088FF",
+        "#BBBBBB",
     ],
     "dawnbringer16": [
-        "#140C1C", "#442434", "#30346D", "#4E4A4E",
-        "#854C30", "#346524", "#D04648", "#757161",
-        "#597DCE", "#D27D2C", "#8595A1", "#6DAA2C",
-        "#D2AA99", "#6DC2CA", "#DAD45E", "#DEEED6",
+        "#140C1C",
+        "#442434",
+        "#30346D",
+        "#4E4A4E",
+        "#854C30",
+        "#346524",
+        "#D04648",
+        "#757161",
+        "#597DCE",
+        "#D27D2C",
+        "#8595A1",
+        "#6DAA2C",
+        "#D2AA99",
+        "#6DC2CA",
+        "#DAD45E",
+        "#DEEED6",
     ],
     "dawnbringer32": [
-        "#000000", "#222034", "#45283C", "#663931",
-        "#8F563B", "#DF7126", "#D9A066", "#EEC39A",
-        "#FBF236", "#99E550", "#6ABE30", "#37946E",
-        "#4B692F", "#524B24", "#323C39", "#3F3F74",
-        "#306082", "#5B6EE1", "#639BFF", "#5FCDE4",
-        "#CBDBFC", "#FFFFFF", "#9BADB7", "#847E87",
-        "#696A6A", "#595652", "#76428A", "#AC3232",
-        "#D95763", "#D77BBA", "#8F974A", "#8A6F30",
+        "#000000",
+        "#222034",
+        "#45283C",
+        "#663931",
+        "#8F563B",
+        "#DF7126",
+        "#D9A066",
+        "#EEC39A",
+        "#FBF236",
+        "#99E550",
+        "#6ABE30",
+        "#37946E",
+        "#4B692F",
+        "#524B24",
+        "#323C39",
+        "#3F3F74",
+        "#306082",
+        "#5B6EE1",
+        "#639BFF",
+        "#5FCDE4",
+        "#CBDBFC",
+        "#FFFFFF",
+        "#9BADB7",
+        "#847E87",
+        "#696A6A",
+        "#595652",
+        "#76428A",
+        "#AC3232",
+        "#D95763",
+        "#D77BBA",
+        "#8F974A",
+        "#8A6F30",
     ],
 }
+
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     """RGB-only parse (alpha dropped); unified via core.colors.parse_hex_color."""
     rgba = parse_hex_color(value)
     return rgba[:3] if rgba else None
+
 
 @mcp.tool()
 async def get_palette(filename: str) -> str:
@@ -81,6 +143,7 @@ async def get_palette(filename: str) -> str:
         return output
     return f"Failed to get palette: {output}"
 
+
 @mcp.tool()
 async def set_palette(filename: str, colors: List[str]) -> str:
     """Set the active sprite palette using a list of hex colors."""
@@ -97,7 +160,10 @@ async def set_palette(filename: str, colors: List[str]) -> str:
         rgb_list.append(rgb)
 
     palette_entries = "\n".join(
-        [f"    pal:setColor({i}, Color({r}, {g}, {b}))" for i, (r, g, b) in enumerate(rgb_list)]
+        [
+            f"    pal:setColor({i}, Color({r}, {g}, {b}))"
+            for i, (r, g, b) in enumerate(rgb_list)
+        ]
     )
 
     script = f"""
@@ -116,15 +182,16 @@ async def set_palette(filename: str, colors: List[str]) -> str:
         return f"Palette set with {len(colors)} colors in {filename}"
     return f"Failed to set palette: {output}"
 
+
 @mcp.tool()
 async def remap_colors_in_cel_range(
     filename: str,
     layer_name: str,
     start_frame: int,
     end_frame: int,
-    mappings: List[dict],
+    mappings: List[dict[str, str]],
     create_missing_cels: bool = False,
-    source_frame_index: int | None = None
+    source_frame_index: int | None = None,
 ) -> str:
     """Remap colors in a layer across a frame range using explicit mappings.
 
@@ -227,9 +294,7 @@ async def remap_colors_in_cel_range(
 
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
-        return (
-            f"Remapped colors on '{layer_name}' frames {start_frame}-{end_frame} in {filename}"
-        )
+        return f"Remapped colors on '{layer_name}' frames {start_frame}-{end_frame} in {filename}"
     return f"Failed to remap colors: {output}"
 
 
@@ -308,8 +373,11 @@ async def generate_color_ramp(
         # Shadows slightly more saturated, highlights slightly less
         ns = min(1.0, max(0.0, s - t * 0.15))
         nr, ng, nb = colorsys.hls_to_rgb(nh, nl, ns)
-        ramp.append("#{:02X}{:02X}{:02X}".format(
-            round(nr * 255), round(ng * 255), round(nb * 255)))
+        ramp.append(
+            "#{:02X}{:02X}{:02X}".format(
+                round(nr * 255), round(ng * 255), round(nb * 255)
+            )
+        )
     return json.dumps(ramp)
 
 
@@ -422,7 +490,7 @@ async def quantize_to_palette(
     count = "?"
     for line in output.splitlines():
         if line.startswith("COUNT:"):
-            count = line[len("COUNT:"):]
+            count = line[len("COUNT:") :]
     return f"Quantized {count} pixels to the palette in {filename}"
 
 

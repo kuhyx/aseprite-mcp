@@ -32,7 +32,9 @@ _ANCHORS = (
 )
 
 
-def _text_origin(anchor: str, x: int, y: int, metrics: dict) -> tuple[int, int]:
+def _text_origin(
+    anchor: str, x: int, y: int, metrics: dict[str, int]
+) -> tuple[int, int]:
     """Map an anchor point to the pen origin the glyph run should start from.
 
     Ink coordinates run from the pen origin on x and from the baseline on y, so

@@ -8,6 +8,7 @@ quantize_to_palette stay) per the "deprecate, don't break" policy.
 
 General value (upstream-able): nothing Chimera-specific here.
 """
+
 import json
 import os
 
@@ -17,23 +18,54 @@ from .fx import _parse_hex_color
 from .. import mcp
 
 # Built-in convolution-matrix resource names (Aseprite data/convmatr.def).
-CONVOLUTION_MATRICES = frozenset({
-    "brightness", "contrast", "negative",
-    "blur-3x3", "blur-3x3-hard", "blur-5x5", "blur-7x7", "blur-9x9", "blur-17x17",
-    "blur-5x3-left", "blur-17x3-left", "blur-3x17-top",
-    "blur-5x5-diagonal(\\)", "blur-5x5-diagonal(/)",
-    "sharpen-3x3", "sharpen-5x5", "sharpen-7x7",
-    "edges-find", "edges-find-horizontal", "edges-find-vertical",
-    "misc-contour", "misc-texturize", "misc-emboss", "misc-marmolize",
-    "misc-rock", "misc-rock-edges",
-    "drunk-3x3_x", "drunk-3x3_+", "drunk-5x5_x", "drunk-5x5_+",
-    "drunk-7x7_x", "drunk-7x7_+", "drunk-9x9_x", "drunk-9x9_+",
-    "drunk-17x17_x", "drunk-17x17_+", "drunk-17x17_o",
-    "outline-transparent-layer-(cross)", "outline-transparent-layer-(square)",
-})
+CONVOLUTION_MATRICES = frozenset(
+    {
+        "brightness",
+        "contrast",
+        "negative",
+        "blur-3x3",
+        "blur-3x3-hard",
+        "blur-5x5",
+        "blur-7x7",
+        "blur-9x9",
+        "blur-17x17",
+        "blur-5x3-left",
+        "blur-17x3-left",
+        "blur-3x17-top",
+        "blur-5x5-diagonal(\\)",
+        "blur-5x5-diagonal(/)",
+        "sharpen-3x3",
+        "sharpen-5x5",
+        "sharpen-7x7",
+        "edges-find",
+        "edges-find-horizontal",
+        "edges-find-vertical",
+        "misc-contour",
+        "misc-texturize",
+        "misc-emboss",
+        "misc-marmolize",
+        "misc-rock",
+        "misc-rock-edges",
+        "drunk-3x3_x",
+        "drunk-3x3_+",
+        "drunk-5x5_x",
+        "drunk-5x5_+",
+        "drunk-7x7_x",
+        "drunk-7x7_+",
+        "drunk-9x9_x",
+        "drunk-9x9_+",
+        "drunk-17x17_x",
+        "drunk-17x17_+",
+        "drunk-17x17_o",
+        "outline-transparent-layer-(cross)",
+        "outline-transparent-layer-(square)",
+    }
+)
 
 
-def _region(x: int, y: int, width: int, height: int):
+def _region(
+    x: int, y: int, width: int, height: int
+) -> tuple[int, int, int, int] | None:
     return (x, y, width, height) if width > 0 and height > 0 else None
 
 
@@ -69,12 +101,16 @@ async def outline_native(
     if matrix not in ("circle", "square"):
         return "matrix must be 'circle' or 'square'"
     r, g, b = rgb
-    cmd = (f'        app.command.Outline{{ui=false, color=Color{{r={r}, g={g}, '
-           f'b={b}, a=255}}, place="{place}", matrix="{matrix}"}}')
+    cmd = (
+        f"        app.command.Outline{{ui=false, color=Color{{r={r}, g={g}, "
+        f'b={b}, a=255}}, place="{place}", matrix="{matrix}"}}'
+    )
     script = build_native_command_script(cmd, layer_name, frame_index)
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
-        return f"Outlined ({place}, {matrix}) {layer_name or 'active layer'} in {filename}"
+        return (
+            f"Outlined ({place}, {matrix}) {layer_name or 'active layer'} in {filename}"
+        )
     return f"Failed to outline: {output}"
 
 
@@ -108,10 +144,13 @@ async def adjust_hsl_native(
         return "hue must be -180..180"
     if not (-100 <= saturation <= 100) or not (-100 <= lightness <= 100):
         return "saturation and lightness must be -100..100"
-    cmd = (f'        app.command.HueSaturation{{ui=false, hue={hue}, '
-           f'saturation={saturation}, lightness={lightness}, alpha=0}}')
-    script = build_native_command_script(cmd, layer_name, frame_index,
-                                         _region(x, y, width, height))
+    cmd = (
+        f"        app.command.HueSaturation{{ui=false, hue={hue}, "
+        f"saturation={saturation}, lightness={lightness}, alpha=0}}"
+    )
+    script = build_native_command_script(
+        cmd, layer_name, frame_index, _region(x, y, width, height)
+    )
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
         return f"Adjusted HSL on {layer_name or 'active layer'} in {filename}"
@@ -144,10 +183,13 @@ async def adjust_brightness_contrast(
         return f"File {filename} not found"
     if not (-100 <= brightness <= 100) or not (-100 <= contrast <= 100):
         return "brightness and contrast must be -100..100"
-    cmd = (f'        app.command.BrightnessContrast{{ui=false, '
-           f'brightness={brightness}, contrast={contrast}}}')
-    script = build_native_command_script(cmd, layer_name, frame_index,
-                                         _region(x, y, width, height))
+    cmd = (
+        f"        app.command.BrightnessContrast{{ui=false, "
+        f"brightness={brightness}, contrast={contrast}}}"
+    )
+    script = build_native_command_script(
+        cmd, layer_name, frame_index, _region(x, y, width, height)
+    )
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
         return f"Adjusted brightness/contrast on {layer_name or 'active layer'} in {filename}"
@@ -175,8 +217,9 @@ async def invert_colors(
     if not os.path.exists(filename):
         return f"File {filename} not found"
     cmd = "        app.command.InvertColor{ui=false}"
-    script = build_native_command_script(cmd, layer_name, frame_index,
-                                         _region(x, y, width, height))
+    script = build_native_command_script(
+        cmd, layer_name, frame_index, _region(x, y, width, height)
+    )
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
         return f"Inverted colours on {layer_name or 'active layer'} in {filename}"
@@ -207,11 +250,14 @@ async def apply_convolution(
     if not os.path.exists(filename):
         return f"File {filename} not found"
     if matrix not in CONVOLUTION_MATRICES:
-        return (f"Unknown matrix {matrix!r}; call list_convolution_matrices for "
-                f"the {len(CONVOLUTION_MATRICES)} valid names")
+        return (
+            f"Unknown matrix {matrix!r}; call list_convolution_matrices for "
+            f"the {len(CONVOLUTION_MATRICES)} valid names"
+        )
     cmd = f'        app.command.ConvolutionMatrix{{ui=false, fromResource="{lua_escape(matrix)}"}}'
-    script = build_native_command_script(cmd, layer_name, frame_index,
-                                         _region(x, y, width, height))
+    script = build_native_command_script(
+        cmd, layer_name, frame_index, _region(x, y, width, height)
+    )
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if success:
         return f"Applied convolution '{matrix}' on {layer_name or 'active layer'} in {filename}"
@@ -270,5 +316,7 @@ async def extract_palette(
     success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     if not success:
         return f"Failed to extract palette: {output}"
-    colors = [ln[len("PALETTE:"):] for ln in output.splitlines() if ln.startswith("PALETTE:")]
+    colors = [
+        ln[len("PALETTE:") :] for ln in output.splitlines() if ln.startswith("PALETTE:")
+    ]
     return json.dumps({"colors": colors, "count": len(colors)})
