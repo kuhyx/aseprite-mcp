@@ -19,6 +19,8 @@ no reliable way to know which cel is active from here, and asserting
 content would be testing a guess, not the file's documented behavior.
 """
 
+from unittest.mock import patch
+
 from conftest import ok, run
 
 from aseprite_mcp.tools import canvas, drawing, pixel_read
@@ -616,3 +618,93 @@ def test_draw_ellipse_at_bad_layer(sprite):
 def test_draw_ellipse_at_bad_frame(sprite):
     result = run(drawing.draw_ellipse_at(sprite, "body", 99, 16, 16, 6, 4))
     assert "Failed to draw ellipse" in result
+
+
+# --- mocked execute_lua_script_checked: process-level subprocess failures ---
+# The five layer-less tools have no layer_name param, so "bad layer"/"bad
+# frame" can't reach their failure branch - only a real subprocess failure
+# (mocked here) or a genuine ERROR: line from the script itself can.
+
+
+def test_draw_pixels_reports_subprocess_failure():
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(
+            drawing.draw_pixels(
+                "/tmp/ase-pytest/does-not-exist.aseprite", [{"x": 0, "y": 0}]
+            )
+        )
+    assert "not found" in result
+
+
+def test_draw_pixels_reports_subprocess_failure_on_real_file(sprite):
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(
+            drawing.draw_pixels(sprite, [{"x": 0, "y": 0, "color": "#FF0000"}])
+        )
+    assert result == "Failed to draw pixels: boom"
+
+
+def test_draw_line_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(drawing.draw_line(sprite, 0, 0, 4, 4))
+    assert result == "Failed to draw line: boom"
+
+
+def test_draw_rectangle_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(drawing.draw_rectangle(sprite, 0, 0, 4, 4))
+    assert result == "Failed to draw rectangle: boom"
+
+
+def test_fill_area_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(drawing.fill_area(sprite, 0, 0))
+    assert result == "Failed to fill area: boom"
+
+
+def test_draw_circle_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(drawing.draw_circle(sprite, 8, 8, 4))
+    assert result == "Failed to draw circle: boom"
+
+
+def test_draw_pixels_at_reports_subprocess_failure(sprite):
+    ok(run(canvas.add_layer(sprite, "fail-pixels-at")))
+    with patch(
+        "aseprite_mcp.tools.drawing.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(
+            drawing.draw_pixels_at(
+                sprite, "fail-pixels-at", 1, [{"x": 0, "y": 0, "color": "#FF0000"}]
+            )
+        )
+    assert result == "Failed to draw pixels: boom"
+
+
+def test_draw_pixels_at_empty_pixel_list_uses_fallback_bounds(sprite):
+    # xs/ys are both empty when pixels=[], hitting the need_x=need_y=0,
+    # need_w=need_h=1 fallback instead of the min/max-derived bounding box.
+    ok(run(canvas.add_layer(sprite, "empty-pixels-at")))
+    result = ok(run(drawing.draw_pixels_at(sprite, "empty-pixels-at", 1, [])))
+    assert result == (
+        f"Pixels drawn on 'empty-pixels-at' frame 1 in {sprite} (0 pixels)"
+    )

@@ -9,11 +9,13 @@ Aseprite to exit non-zero. A garbage/corrupt .aseprite file does NOT do
 that: Aseprite prints "Error reading header" to stderr but still exits 0
 with no active sprite, which is caught by the script's own "ERROR:No
 active sprite" line instead. Confirmed by direct probe (see task report);
-those `if not success:` branches are effectively unreachable without
-mocking subprocess, so no test targets them here.
+those `if not success:` branches are covered below via mocking
+AsepriteCommand.execute_lua_script directly, the same pattern used for
+core/commands.py's subprocess boundary.
 """
 
 import json
+from unittest.mock import patch
 
 from conftest import ok, run
 
@@ -81,3 +83,62 @@ def test_get_composite_rect_bad_dims(sprite):
 def test_get_composite_rect_frame_out_of_range(sprite):
     result = run(pixel_read.get_composite_rect(sprite, 0, 0, 2, 2, 99))
     assert str(result).startswith(("Failed", "ERROR"))
+
+
+# --- mocked execute_lua_script: process-level (not in-script) failures ---
+
+
+def test_get_pixel_color_reports_subprocess_failure(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (False, "boom")
+        result = run(pixel_read.get_pixel_color(sprite, 0, 0))
+    assert result == "Failed to read pixel: boom"
+
+
+def test_get_pixels_rect_reports_subprocess_failure(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (False, "boom")
+        result = run(pixel_read.get_pixels_rect(sprite, 0, 0, 2, 2))
+    assert result == "Failed to read pixels: boom"
+
+
+def test_get_composite_pixel_reports_subprocess_failure(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (False, "boom")
+        result = run(pixel_read.get_composite_pixel(sprite, 0, 0))
+    assert result == "Failed to read composite pixel: boom"
+
+
+def test_get_composite_rect_reports_subprocess_failure(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (False, "boom")
+        result = run(pixel_read.get_composite_rect(sprite, 0, 0, 2, 2))
+    assert result == "Failed to read composite pixels: boom"
+
+
+def test_get_pixel_color_no_pixel_data_returned(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(pixel_read.get_pixel_color(sprite, 0, 0))
+    assert result == "No pixel data returned"
+
+
+def test_get_pixels_rect_no_pixel_data_returned(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(pixel_read.get_pixels_rect(sprite, 0, 0, 2, 2))
+    assert result == "No pixel data returned"
+
+
+def test_get_composite_pixel_no_pixel_data_returned(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(pixel_read.get_composite_pixel(sprite, 0, 0))
+    assert result == "No pixel data returned"
+
+
+def test_get_composite_rect_no_pixel_data_returned(sprite):
+    with patch("aseprite_mcp.tools.pixel_read.AsepriteCommand.execute_lua_script") as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(pixel_read.get_composite_rect(sprite, 0, 0, 2, 2))
+    assert result == "No pixel data returned"

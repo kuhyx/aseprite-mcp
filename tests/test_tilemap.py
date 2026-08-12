@@ -1,6 +1,7 @@
 """Tilemap tools (tilemap.py)."""
 
 import json
+from unittest.mock import patch
 
 from conftest import ok, run
 
@@ -294,3 +295,39 @@ def test_get_tilemap_info_reports_not_a_tilemap_layer(sprite):
     result = run(tilemap.get_tilemap_info(sprite, "body"))
     assert result.startswith("Failed to get tilemap info:")
     assert "not a tilemap layer" in result
+
+
+def test_get_tile_at_skips_non_tile_lines_before_matching(sprite):
+    with patch(
+        "aseprite_mcp.tools.tilemap.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "some noise\nTILE:5")
+        result = run(tilemap.get_tile_at(sprite, "body", 1, 0, 0))
+    assert json.loads(result)["tile_index"] == 5
+
+
+def test_get_tile_at_no_tile_data_returned(sprite):
+    with patch(
+        "aseprite_mcp.tools.tilemap.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(tilemap.get_tile_at(sprite, "body", 1, 0, 0))
+    assert result == "No tile data returned"
+
+
+def test_get_tilemap_info_skips_non_info_lines_before_matching(sprite):
+    with patch(
+        "aseprite_mcp.tools.tilemap.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "some noise\nINFO:8,8,4,2,2")
+        result = run(tilemap.get_tilemap_info(sprite, "body"))
+    assert json.loads(result)["tile_width"] == 8
+
+
+def test_get_tilemap_info_no_data_returned(sprite):
+    with patch(
+        "aseprite_mcp.tools.tilemap.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(tilemap.get_tilemap_info(sprite, "body"))
+    assert result == "No tilemap data returned"

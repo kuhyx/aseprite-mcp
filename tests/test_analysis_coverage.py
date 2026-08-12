@@ -4,6 +4,7 @@ on compare_frames/get_color_stats.
 """
 
 import os
+from unittest.mock import patch
 
 import pytest
 
@@ -85,6 +86,26 @@ def test_compare_frames_out_of_range(sprite):
     assert str(result).startswith(("Failed", "ERROR"))
 
 
+def test_compare_frames_skips_non_diff_lines_before_matching(sprite):
+    # Forces the `for line in output.splitlines()` loop past a non-"DIFF:"
+    # line before finding the real one, exercising the loop-continue arc.
+    with patch(
+        "aseprite_mcp.tools.analysis.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "some noise\nDIFF:5,1024,0,0,3,3,1")
+        result = run(analysis.compare_frames(sprite, 1, 2))
+    assert '"changed_pixels": 5' in result
+
+
+def test_compare_frames_no_diff_data_returned(sprite):
+    with patch(
+        "aseprite_mcp.tools.analysis.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "nothing useful here")
+        result = run(analysis.compare_frames(sprite, 1, 2))
+    assert result == "No diff data returned"
+
+
 # --- get_color_stats ---
 
 
@@ -101,3 +122,17 @@ def test_get_color_stats_bad_top(sprite):
 def test_get_color_stats_frame_out_of_range(sprite):
     result = run(analysis.get_color_stats(sprite, 99))
     assert str(result).startswith(("Failed", "ERROR"))
+
+
+def test_get_color_stats_skips_non_matching_lines_before_matching(sprite):
+    # Forces the parsing loop past a line that matches none of the
+    # COLOR:/OPAQUE:/UNIQUE: prefixes, exercising the loop-continue arc.
+    with patch(
+        "aseprite_mcp.tools.analysis.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (
+            True,
+            "some noise\nCOLOR:#ff0000,10\nOPAQUE:10\nUNIQUE:1",
+        )
+        result = run(analysis.get_color_stats(sprite))
+    assert '"unique_colors": 1' in result

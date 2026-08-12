@@ -593,6 +593,20 @@ def test_iter_system_fonts_skips_unreadable_dir(monkeypatch):
     assert list(fontlib._iter_system_fonts()) == []
 
 
+def test_iter_system_fonts_skips_nonexistent_dir_and_non_ttf_entries(
+    monkeypatch, tmp_path
+):
+    real_dir = tmp_path / "sysfonts"
+    real_dir.mkdir()
+    (real_dir / "readme.txt").write_text("not a font")
+    (real_dir / "Some.ttf").write_text("fake ttf bytes")
+    monkeypatch.setattr(
+        fontlib, "_SYSTEM_FONT_DIRS", ("/does/not/exist", str(real_dir))
+    )
+    found = list(fontlib._iter_system_fonts())
+    assert [name for name, _, _ in found] == ["Some"]
+
+
 @requires_system_ttf
 def test_available_fonts_dedup_is_case_insensitive_and_user_first(monkeypatch):
     user_dir = tempfile.mkdtemp()
@@ -621,6 +635,35 @@ def test_available_fonts_dedup_is_case_insensitive_and_user_first(monkeypatch):
 def test_load_font_unknown_name_raises(isolated_font_dirs):
     with pytest.raises(fontlib.FontError, match="not found"):
         fontlib.load_font("nope-not-a-font")
+
+
+def test_load_font_name_lookup_iterates_without_matching(isolated_font_dirs, tmp_path):
+    # A non-empty available_fonts() list where no entry matches the
+    # requested name - the for-loop must run to completion without ever
+    # hitting `break`, distinct from the empty-list case above.
+    user_dir = isolated_font_dirs
+    font_dir = os.path.join(user_dir, "somebitmap")
+    os.makedirs(font_dir)
+    _blank_sheet(tmp_path, "s.png")
+    shutil.copy(os.path.join(tmp_path, "s.png"), os.path.join(font_dir, "s.png"))
+    with open(os.path.join(font_dir, "font.json"), "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "name": "somebitmap",
+                "sheets": [
+                    {
+                        "file": "s.png",
+                        "cell_w": 4,
+                        "cell_h": 4,
+                        "ascent": 3,
+                        "chars": ["A"],
+                    }
+                ],
+            },
+            f,
+        )
+    with pytest.raises(fontlib.FontError, match="not found"):
+        fontlib.load_font("totally-different-name")
 
 
 def test_load_font_path_like_spec_that_does_not_exist_falls_back_to_name_lookup(
@@ -742,6 +785,15 @@ def test_shape_rejects_zero_size_for_truetype_font():
     font = fontlib.TrueTypeFont(SYSTEM_TTF)
     with pytest.raises(fontlib.FontError, match="pixel height"):
         fontlib.shape("A", font, size=0)
+
+
+@requires_system_ttf
+def test_shape_truetype_font_success():
+    font = fontlib.TrueTypeFont(SYSTEM_TTF)
+    ink, metrics = fontlib.shape("A", font, size=12)
+    assert ink
+    assert metrics["width"] > 0
+    assert metrics["height"] > 0
 
 
 def test_shape_empty_ink_returns_zeroed_metrics(tmp_path):

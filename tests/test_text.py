@@ -286,6 +286,22 @@ def test_list_fonts_reports_user_and_system_sections(monkeypatch):
     assert "Arial" in out
 
 
+def test_list_fonts_reports_user_only(monkeypatch):
+    fake = [{"name": "MyBitmap", "kind": "bitmap", "path": "/x", "source": "user"}]
+    monkeypatch.setattr(text.fontlib, "available_fonts", lambda: fake)
+    out = run(text.list_text_fonts())
+    assert "User fonts (~/.aseprite-mcp/fonts):" in out
+    assert "System fonts" not in out
+
+
+def test_list_fonts_reports_system_only(monkeypatch):
+    fake = [{"name": "Arial", "kind": "truetype", "path": "/y", "source": "system"}]
+    monkeypatch.setattr(text.fontlib, "available_fonts", lambda: fake)
+    out = run(text.list_text_fonts())
+    assert "User fonts" not in out
+    assert "System fonts (1, all truetype):" in out
+
+
 def test_list_fonts_reports_no_fonts_found(monkeypatch):
     monkeypatch.setattr(text.fontlib, "available_fonts", lambda: [])
     out = run(text.list_text_fonts())
@@ -420,6 +436,24 @@ def test_draw_text_missing_file(bitmap_font):
 def test_draw_text_font_load_error_is_reported(sprite):
     out = run(text.draw_text(sprite, "A", 0, 0, "definitely-not-a-font"))
     assert out.startswith("ERROR:")
+
+
+def test_draw_text_tolerates_temp_file_cleanup_failure(
+    sprite, bitmap_font, monkeypatch
+):
+    # The finally-block os.unlink(tmp.name) can race a concurrent cleanup
+    # or antivirus lock; the swallowed OSError must not surface to the
+    # caller or block the real success/failure result.
+    real_unlink = os.unlink
+
+    def flaky_unlink(path):
+        if path.endswith(".png"):
+            raise OSError("simulated cleanup failure")
+        real_unlink(path)
+
+    monkeypatch.setattr(text.os, "unlink", flaky_unlink)
+    out = ok(run(text.draw_text(sprite, "A", 0, 0, bitmap_font)))
+    assert "Drew" in out
 
 
 def test_draw_text_shadow_with_no_outline(sprite, bitmap_font):

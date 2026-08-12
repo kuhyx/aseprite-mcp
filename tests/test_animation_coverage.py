@@ -10,6 +10,7 @@ a dedicated one-off sprite instead of exhausting the shared one.
 """
 
 import json
+from unittest.mock import patch
 
 from conftest import BASE, ok, run
 
@@ -911,3 +912,60 @@ def test_set_cel_opacity_no_cel_at_layer_frame(sprite):
     ok(run(animation.clear_cel(sprite, "body", 6)))
     result = run(animation.set_cel_opacity(sprite, "body", 6, 100))
     assert "No cel at that layer/frame" in result
+
+
+# --- mocked execute_lua_script_checked: process-level subprocess failures ---
+
+
+def test_add_frames_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.animation.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(animation.add_frames(sprite, 1))
+    assert result == "Failed to add frames: boom"
+
+
+def test_set_frame_duration_all_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.animation.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(animation.set_frame_duration_all(sprite, 100))
+    assert result == "Failed to set frame durations: boom"
+
+
+def test_set_layer_visibility_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.animation.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(animation.set_layer_visibility(sprite, "body", True))
+    assert result == "Failed to set layer visibility: boom"
+
+
+def test_set_layer_opacity_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.animation.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(animation.set_layer_opacity(sprite, "body", 100))
+    assert result == "Failed to set layer opacity: boom"
+
+
+def test_get_sprite_info_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.animation.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(animation.get_sprite_info(sprite))
+    assert result == "Failed to get sprite info: boom"
+
+
+def test_set_cel_position_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.animation.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(animation.set_cel_position(sprite, "body", 1, 5, 5))
+    assert result == "Failed to set cel position: boom"

@@ -5,6 +5,7 @@ mutate the shared module-scoped sprite's palette and color mode.
 """
 
 import json
+from unittest.mock import patch
 
 from conftest import BASE, ok, run
 
@@ -267,3 +268,42 @@ def test_set_color_mode_grayscale_roundtrip(sprite):
     ok(run(palette.set_color_mode(sprite, "grayscale")))
     result = ok(run(palette.set_color_mode(sprite, "rgb")))
     assert result == f"Color mode set to rgb in {sprite}"
+
+
+# ── mocked execute_lua_script_checked: process-level subprocess failures ──
+
+
+def test_get_palette_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(palette.get_palette(sprite))
+    assert result == "Failed to get palette: boom"
+
+
+def test_set_palette_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(palette.set_palette(sprite, ["#FF0000"]))
+    assert result == "Failed to set palette: boom"
+
+
+def test_set_color_mode_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(palette.set_color_mode(sprite, "rgb"))
+    assert result == "Failed to set color mode: boom"
+
+
+def test_quantize_to_palette_skips_non_count_lines_before_matching(sprite):
+    with patch(
+        "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "some noise\nCOUNT:9")
+        result = run(palette.quantize_to_palette(sprite))
+    assert "Quantized 9 pixels" in result

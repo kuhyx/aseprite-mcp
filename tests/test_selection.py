@@ -1,5 +1,7 @@
 """Region operation tools (selection.py)."""
 
+from unittest.mock import patch
+
 from conftest import ok, run
 
 from aseprite_mcp.tools import canvas, selection
@@ -174,3 +176,15 @@ def test_erase_color_reports_frame_out_of_range(sprite):
 def test_erase_color_with_no_matching_pixels_reports_zero(sprite):
     result = ok(run(selection.erase_color(sprite, "body", 1, "#123456", 0)))
     assert "Erased 0 pixels" in result
+
+
+def test_erase_color_skips_non_count_lines_before_matching(sprite):
+    # Forces the `for line in output.splitlines()` loop to iterate past at
+    # least one non-"COUNT:" line before finding the real one, exercising
+    # the loop-continues branch (as opposed to matching on the first line).
+    with patch(
+        "aseprite_mcp.tools.selection.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "some other output\nCOUNT:7")
+        result = run(selection.erase_color(sprite, "body", 1, "#FF0000", 0))
+    assert "Erased 7 pixels" in result

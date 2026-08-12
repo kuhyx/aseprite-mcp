@@ -1,6 +1,7 @@
 """Coverage tests for export.py: validation, error, and branch paths."""
 
 import os
+from unittest.mock import patch
 
 from conftest import BASE, ok, run
 
@@ -132,6 +133,12 @@ def test_export_frame_keeps_existing_png_extension(sprite):
     assert result == f"Frame 1 exported to {out} at 1x"
 
 
+def test_export_frame_appends_png_extension(sprite):
+    out = f"{BASE}/frame_no_ext"
+    result = ok(run(export.export_frame(sprite, 1, out, scale=1)))
+    assert result == f"Frame 1 exported to {out}.png at 1x"
+
+
 def test_export_frame_out_of_range_frame_fabricates_success():
     # KNOWN BUG (not fixed here, out of scope for this pass): a frame index
     # past the last frame does NOT error. Aseprite's --frame-range silently
@@ -147,16 +154,33 @@ def test_export_frame_out_of_range_frame_fabricates_success():
     assert os.path.exists(out)
 
 
+def test_export_frame_reports_subprocess_failure():
+    fresh = _fresh_sprite("export-frame-fail")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (False, "boom")
+        result = run(export.export_frame(fresh, 1, f"{BASE}/frame_fail.png"))
+    assert result == "Failed to export frame: boom"
+
+
 def test_export_frame_renames_frame_numbered_sibling():
-    # With a multi-frame sprite, exporting a non-first frame makes Aseprite
-    # append the frame number to the output filename; export_frame must
-    # detect and rename that sibling to the exact requested name.
+    # NOTE: verified directly against real Aseprite that --frame-range
+    # writes exactly to the requested filename even for frame 2+ of a
+    # multi-frame sprite - no numbered sibling is produced in practice, so
+    # this rename fallback is not reachable through the real CLI as
+    # documented. Covering it here via a mock instead, since it's still
+    # live code that should behave correctly if that CLI behavior ever
+    # changes (or differs on another platform/Aseprite version).
     fresh = _fresh_sprite("export-frame-rename")
-    ok(run(canvas.add_frame(fresh)))
     out = f"{BASE}/frame_rename.png"
-    result = ok(run(export.export_frame(fresh, 2, out, scale=1)))
+    sibling = f"{BASE}/frame_rename1.png"
+    with open(sibling, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_frame(fresh, 2, out, scale=1))
     assert result == f"Frame 2 exported to {out} at 1x"
     assert os.path.exists(out)
+    assert not os.path.exists(sibling)
 
 
 # ── export_spritesheet: validation branches ─────────────────────────────
@@ -207,6 +231,12 @@ def test_export_spritesheet_keeps_existing_png_extension(sprite):
     out = f"{BASE}/sheet_ext.png"
     result = ok(run(export.export_spritesheet(sprite, out)))
     assert f"Sprite sheet exported to {out}" in result
+
+
+def test_export_spritesheet_appends_png_extension(sprite):
+    out = f"{BASE}/sheet_no_ext"
+    result = ok(run(export.export_spritesheet(sprite, out)))
+    assert f"Sprite sheet exported to {out}.png" in result
 
 
 def test_export_spritesheet_reports_unknown_tag(sprite):
@@ -325,6 +355,18 @@ def test_export_sprite_gif_format(sprite):
     assert result == f"Sprite exported successfully to {out}"
 
 
+def test_export_sprite_multiframe_still_accepts_numbered_siblings():
+    # A multi-frame sprite saved to a still image format doesn't produce
+    # the exact requested filename - Aseprite writes frame-numbered
+    # siblings (outN.png) instead. export_sprite must still report success
+    # by finding those via glob, not just an exact os.path.exists check.
+    fresh = _fresh_sprite("export-sprite-multiframe")
+    ok(run(canvas.add_frame(fresh)))
+    out = f"{BASE}/export_multiframe.png"
+    result = ok(run(export.export_sprite(fresh, out, "png")))
+    assert result == f"Sprite exported successfully to {out}"
+
+
 def test_export_sprite_reports_unwritable_format(sprite):
     # "json" is not a writable --save-as image format; Aseprite either
     # exits nonzero (-> "Failed to export sprite") or exits 0 without
@@ -333,3 +375,125 @@ def test_export_sprite_reports_unwritable_format(sprite):
     out = f"{BASE}/export_bad_format"
     result = run(export.export_sprite(sprite, out, "json"))
     assert result.startswith("Failed to export sprite:")
+
+
+# ── mocked run_command/execute_lua_script_checked: unreachable-via-real-
+#    Aseprite failure branches ("exited 0 but wrote no X", nonzero exit) ──
+
+
+def test_export_sprite_exited_zero_no_file():
+    fresh = _fresh_sprite("export-sprite-zero")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_sprite(fresh, f"{BASE}/export_sprite_zero_out.png"))
+    assert "Aseprite exited 0 but wrote no file" in result
+
+
+def test_copy_sprite_reports_subprocess_failure():
+    fresh = _fresh_sprite("copy-fail")
+    with patch(
+        "aseprite_mcp.tools.export.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(export.copy_sprite(fresh, f"{BASE}/copy_fail_out.aseprite"))
+    assert result == "Failed to copy sprite: boom"
+
+
+def test_copy_sprite_exited_zero_no_file():
+    fresh = _fresh_sprite("copy-zero")
+    with patch(
+        "aseprite_mcp.tools.export.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "OK")
+        result = run(export.copy_sprite(fresh, f"{BASE}/copy_zero_out.aseprite"))
+    assert result == "Failed to copy sprite: Aseprite exited 0 but wrote no file"
+
+
+def test_export_frame_renaming_finds_no_candidate():
+    fresh = _fresh_sprite("frame-no-candidate")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_frame(fresh, 1, f"{BASE}/frame_none.png"))
+    assert (
+        result == f"Export reported success but {BASE}/frame_none.png was not created"
+    )
+
+
+def test_export_spritesheet_tag_resolution_no_range_returned():
+    fresh = _fresh_sprite("sheet-no-range")
+    with patch(
+        "aseprite_mcp.tools.export.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (True, "no RANGE: line here")
+        result = run(
+            export.export_spritesheet(
+                fresh, f"{BASE}/sheet_no_range.png", tag_name="whatever"
+            )
+        )
+    assert result == "Failed to resolve tag: no range returned"
+
+
+def test_export_spritesheet_exited_zero_no_sheet_file():
+    fresh = _fresh_sprite("sheet-zero")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_spritesheet(fresh, f"{BASE}/sheet_zero.png"))
+    assert (
+        result
+        == "Failed to export sprite sheet: Aseprite exited 0 but wrote no sheet file"
+    )
+
+
+def test_export_spritesheet_exited_zero_no_data_file():
+    # Sheet image is written for real by the real run_command call; only
+    # the data_filename existence check is faked to report "missing", to
+    # reach the second (data-file) guard without faking the whole command.
+    fresh = _fresh_sprite("sheet-zero-data")
+    out = f"{BASE}/sheet_zero_data.png"
+    data_out = f"{BASE}/sheet_zero_data.json"
+    real_exists = os.path.exists
+
+    with patch(
+        "aseprite_mcp.tools.export.os.path.exists",
+        side_effect=lambda p: False if p == data_out else real_exists(p),
+    ):
+        result = run(export.export_spritesheet(fresh, out, data_filename=data_out))
+    assert (
+        result
+        == "Failed to export sprite sheet: Aseprite exited 0 but wrote no data file"
+    )
+
+
+def test_export_layers_reports_subprocess_failure():
+    fresh = _fresh_sprite("layers-fail")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (False, "boom")
+        result = run(export.export_layers(fresh, f"{BASE}/layers_fail_out"))
+    assert result == "Failed to export layers: boom"
+
+
+def test_export_layers_exited_zero_no_png_files():
+    fresh = _fresh_sprite("layers-zero")
+    out_dir = f"{BASE}/layers_zero_out"
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_layers(fresh, out_dir))
+    assert result == "Failed to export layers: Aseprite exited 0 but wrote no PNG files"
+
+
+def test_export_tag_exited_zero_no_file():
+    fresh = _fresh_sprite("tag-zero")
+    ok(run(animation.set_tag(fresh, "tagzero", 1, 1, "forward")))
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_tag(fresh, "tagzero", f"{BASE}/tag_zero.png"))
+    assert result == "Failed to export tag: Aseprite exited 0 but wrote no file"
+
+
+def test_export_tag_reports_subprocess_failure():
+    fresh = _fresh_sprite("tag-fail")
+    ok(run(animation.set_tag(fresh, "tagfail", 1, 1, "forward")))
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (False, "boom")
+        result = run(export.export_tag(fresh, "tagfail", f"{BASE}/tag_fail.png"))
+    assert result == "Failed to export tag: boom"

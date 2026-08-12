@@ -1,10 +1,13 @@
 """Coverage tests for canvas.py: layer/frame/group management tools."""
 
 import os
+from unittest.mock import patch
 
 from conftest import BASE, ok, run
 
 from aseprite_mcp.tools import canvas
+
+_MOCK_PATH = "aseprite_mcp.tools.canvas.AsepriteCommand.execute_lua_script_checked"
 
 
 # ── create_canvas ────────────────────────────────────────────────────────
@@ -215,3 +218,29 @@ def test_set_layer_missing_without_create_flag():
     fresh = _fresh_sprite("canvas-set-layer-missing")
     result = run(canvas.set_layer(fresh, "no-such-layer", create_if_missing=False))
     assert "Active layer set to 'no-such-layer'" in result
+
+
+# --- mocked execute_lua_script_checked: process-level subprocess failures ---
+
+
+def test_create_canvas_reports_subprocess_failure():
+    with patch(_MOCK_PATH) as m:
+        m.return_value = (False, "boom")
+        result = run(canvas.create_canvas(8, 8, f"{BASE}/create_fail.aseprite"))
+    assert result == "Failed to create canvas: boom"
+
+
+def test_add_frame_reports_subprocess_failure():
+    fresh = _fresh_sprite("canvas-add-frame-fail")
+    with patch(_MOCK_PATH) as m:
+        m.return_value = (False, "boom")
+        result = run(canvas.add_frame(fresh))
+    assert result == "Failed to add frame: boom"
+
+
+def test_set_layer_reports_subprocess_failure():
+    fresh = _fresh_sprite("canvas-set-layer-fail")
+    with patch(_MOCK_PATH) as m:
+        m.return_value = (False, "boom")
+        result = run(canvas.set_layer(fresh, "body"))
+    assert result == "Failed to set layer: boom"

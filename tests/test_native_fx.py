@@ -1,6 +1,7 @@
 """Native Aseprite command wrappers (native_fx.py)."""
 
 import json
+from unittest.mock import patch
 
 from conftest import ok, run
 
@@ -198,3 +199,12 @@ def test_apply_convolution_with_region(sprite):
 def test_extract_palette_with_alpha(sprite):
     result = json.loads(ok(run(native_fx.extract_palette(sprite, 8, with_alpha=True))))
     assert result["count"] >= 1
+
+
+def test_extract_palette_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.native_fx.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(native_fx.extract_palette(sprite))
+    assert result == "Failed to extract palette: boom"

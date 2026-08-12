@@ -1,5 +1,7 @@
 """Layer management tools (layers.py)."""
 
+from unittest.mock import patch
+
 from conftest import ok, run
 
 from aseprite_mcp.tools import canvas, drawing, layers
@@ -196,3 +198,12 @@ def test_merge_layer_down_reports_bottom_layer_guard():
     result = run(layers.merge_layer_down(solo_path, "Layer 1"))
     assert result.startswith("Failed to merge layer down:")
     assert "bottom layer" in result
+
+
+def test_flatten_sprite_reports_subprocess_failure(sprite):
+    with patch(
+        "aseprite_mcp.tools.layers.AsepriteCommand.execute_lua_script_checked"
+    ) as m:
+        m.return_value = (False, "boom")
+        result = run(layers.flatten_sprite(sprite))
+    assert result == "Failed to flatten sprite: boom"

@@ -1,5 +1,7 @@
 """Coverage tests for fx.py: validation, error, and branch paths."""
 
+from unittest.mock import patch
+
 from conftest import BASE, ok, run
 
 from aseprite_mcp.tools import canvas, drawing, fx
@@ -421,3 +423,11 @@ def test_apply_dither_pattern_no_create_if_missing():
     )
     assert result.startswith("Failed to apply dither pattern:")
     assert "No cel" in result
+
+
+def test_replace_color_skips_non_count_lines_before_matching():
+    fresh = _fresh_sprite("fx-replace-loop")
+    with patch("aseprite_mcp.tools.fx.AsepriteCommand.execute_lua_script_checked") as m:
+        m.return_value = (True, "some noise\nCOUNT:3")
+        result = run(fx.replace_color(fresh, "body", 1, "#000000", "#FFFFFF"))
+    assert "Replaced 3 pixels" in result
