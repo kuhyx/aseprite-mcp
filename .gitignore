@@ -33,6 +33,14 @@ ENV/
 *.swp
 *.swo
 
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+
 # Aseprite files
 *.aseprite
 *.ase
