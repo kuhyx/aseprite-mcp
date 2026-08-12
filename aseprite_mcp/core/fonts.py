@@ -331,7 +331,8 @@ class TrueTypeFont:
         canvas = Image.new("L", (width, height), 0)
         ImageDraw.Draw(canvas).text((pad, pad), text, font=font, fill=255)
         px = canvas.load()
-        assert px is not None  # freshly created image, always loadable
+        if px is None:
+            raise FontError("freshly created image failed to load")  # pragma: no cover
 
         cutoff = 1 if antialias else threshold
         ink = set()
@@ -340,7 +341,10 @@ class TrueTypeFont:
                 # "L" mode is single-channel, so this is always an int, but
                 # PixelAccess.__getitem__ is typed for every image mode.
                 value = px[x, y]
-                assert isinstance(value, int)
+                if not isinstance(value, int):
+                    raise FontError(  # pragma: no cover
+                        "unexpected pixel type for 'L' mode image"
+                    )
                 if value >= cutoff:
                     ink.add((x - pad, y - pad - ascent))
         return ink, advance

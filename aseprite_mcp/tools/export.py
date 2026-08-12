@@ -1,5 +1,5 @@
-import glob
 import os
+from pathlib import Path
 from typing import Annotated
 
 from mcp.types import ToolAnnotations
@@ -57,8 +57,11 @@ async def export_sprite(
     # (out1.png, out2.png, ...) instead of the exact name, so accept those
     # too — same convention as export_frame.
     if success:
-        base, ext = os.path.splitext(output_filename)
-        if not await path_exists(output_filename) and not glob.glob(f"{base}*{ext}"):
+        out_path = Path(output_filename)
+        pattern = f"{out_path.stem}*{out_path.suffix}"
+        if not await path_exists(output_filename) and not any(
+            out_path.parent.glob(pattern)
+        ):
             success = False
             output = "Aseprite exited 0 but wrote no file (the format may not be writable via --save-as)"
 
@@ -170,10 +173,11 @@ async def export_frame(
     # With multi-frame sprites Aseprite may append the frame number to
     # the filename; rename the produced file when that happens.
     if not await path_exists(output_filename):
-        base, ext = os.path.splitext(output_filename)
-        candidates = sorted(glob.glob(f"{base}*{ext}"))
+        out_path = Path(output_filename)
+        pattern = f"{out_path.stem}*{out_path.suffix}"
+        candidates = sorted(out_path.parent.glob(pattern))
         if candidates:
-            os.replace(candidates[0], output_filename)
+            candidates[0].replace(output_filename)
         else:
             return f"Export reported success but {output_filename} was not created"
     return f"Frame {frame_index} exported to {output_filename} at {scale}x"
@@ -328,7 +332,7 @@ async def export_layers(
     err = reject_traversal(output_directory)
     if err:
         return err
-    os.makedirs(output_directory, exist_ok=True)
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
 
     args = ["--batch"]
     if include_hidden:
@@ -337,14 +341,12 @@ async def export_layers(
         "--split-layers",
         filename,
         "--save-as",
-        os.path.join(output_directory, "{layer}.png"),
+        str(Path(output_directory) / "{layer}.png"),
     ]
     success, output = AsepriteCommand.run_command(args)
     if not success:
         return f"Failed to export layers: {output}"
-    produced = sorted(
-        os.path.basename(p) for p in glob.glob(os.path.join(output_directory, "*.png"))
-    )
+    produced = sorted(p.name for p in Path(output_directory).glob("*.png"))
     if not produced:
         return "Failed to export layers: Aseprite exited 0 but wrote no PNG files"
     return f"Layers exported to {output_directory}: {', '.join(produced)}"
@@ -401,8 +403,11 @@ async def export_tag(
         # A multi-frame tag saved to a still format produces frame-numbered
         # siblings instead of the exact name — accept those, same convention
         # as export_sprite/export_frame.
-        base, ext = os.path.splitext(output_filename)
-        if not await path_exists(output_filename) and not glob.glob(f"{base}*{ext}"):
+        out_path = Path(output_filename)
+        pattern = f"{out_path.stem}*{out_path.suffix}"
+        if not await path_exists(output_filename) and not any(
+            out_path.parent.glob(pattern)
+        ):
             success = False
             output = "Aseprite exited 0 but wrote no file"
     if success:

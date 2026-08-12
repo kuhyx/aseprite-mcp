@@ -7,6 +7,7 @@ result is blitted into the sprite as an image.
 import contextlib
 import os
 import tempfile
+from pathlib import Path
 from typing import Annotated
 
 from mcp.types import ToolAnnotations
@@ -301,7 +302,8 @@ async def draw_text(
 
     stamp = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     pixels = stamp.load()
-    assert pixels is not None  # freshly created image, always loadable
+    if pixels is None:
+        return "ERROR: freshly created image failed to load"  # pragma: no cover
     for group, rgba in ((shadow, shadow_rgba), (outline, outline_rgba), (ink, fill)):
         if not rgba:
             continue
@@ -359,7 +361,7 @@ async def draw_text(
         success, output = AsepriteCommand.execute_lua_script_checked(script, filename)
     finally:
         with contextlib.suppress(OSError):
-            os.unlink(tmp_name)
+            Path(tmp_name).unlink()
 
     if not success:
         return f"Error drawing text: {output}"
