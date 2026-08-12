@@ -13,6 +13,105 @@ from ..core.paths import path_exists
 _EXPORT_SCALE_MAX = 64
 
 
+def _validate_spritesheet_params(
+    sheet_type: str, scale: int, padding: int, data_format: str
+) -> str | None:
+    """Check export_spritesheet's scalar params; return an error string or None."""
+    if sheet_type not in ("horizontal", "vertical", "rows", "columns", "packed"):
+        return "sheet_type must be one of: horizontal, vertical, rows, columns, packed"
+    if scale < 1 or scale > _EXPORT_SCALE_MAX:
+        return f"scale must be between 1 and {_EXPORT_SCALE_MAX}"
+    if padding < 0:
+        return "padding must be >= 0"
+    if data_format not in ("json-array", "json-hash"):
+        return "data_format must be 'json-array' or 'json-hash'"
+    return None
+
+
+def _resolve_tag_frame_range(filename: str, tag_name: str) -> tuple[str | None, str]:
+    """Resolve `tag_name` to a 0-based "from,to" --frame-range value.
+
+    Frame filters only apply to --sheet when they appear before the input
+    file, so the tag has to be resolved to a --frame-range up front rather
+    than passed through as --tag.
+
+    Returns (frame_range, error_message); frame_range is None on failure.
+    """
+    safe_tag = lua_escape(tag_name)
+    script = f"""
+    local spr = app.activeSprite
+    if not spr then print("ERROR:No active sprite") return end
+    for _, tag in ipairs(spr.tags) do
+        if tag.name == "{safe_tag}" then
+            print("RANGE:" .. (tag.fromFrame.frameNumber - 1) .. "," .. (tag.toFrame.frameNumber - 1))
+            return
+        end
+    end
+    print("ERROR:Tag not found")
+    """
+    ok, out = AsepriteCommand.execute_lua_script_checked(script, filename)
+    if not ok:
+        return None, f"Failed to resolve tag: {out}"
+    frame_range = next(
+        (
+            line[len("RANGE:") :]
+            for line in out.splitlines()
+            if line.startswith("RANGE:")
+        ),
+        None,
+    )
+    if frame_range is None:
+        return None, "Failed to resolve tag: no range returned"
+    return frame_range, ""
+
+
+async def _verify_spritesheet_output(
+    output_filename: str,
+    sheet_type: str,
+    data_filename: str,
+    run_result: tuple[bool, str],
+) -> str:
+    """Turn a run_command result into the final export_spritesheet message."""
+    success, output = run_result
+    if success and not await path_exists(output_filename):
+        success = False
+        output = "Aseprite exited 0 but wrote no sheet file"
+    if success and data_filename and not await path_exists(data_filename):
+        success = False
+        output = "Aseprite exited 0 but wrote no data file"
+    if not success:
+        return f"Failed to export sprite sheet: {output}"
+    msg = f"Sprite sheet exported to {output_filename} ({sheet_type})"
+    if data_filename:
+        msg += f" with data file {data_filename}"
+    return msg
+
+
+def _build_spritesheet_args(
+    filename: str,
+    output_filename: str,
+    sheet_type: str,
+    data_filename: str,
+    scale: int,
+    padding: int,
+    data_format: str,
+    list_tags: bool,
+) -> list[str]:
+    """Build the --sheet/--data CLI args once traversal/tag checks pass."""
+    args = [filename]
+    if scale > 1:
+        args += ["--scale", str(scale)]
+    args += ["--sheet-type", sheet_type]
+    if padding > 0:
+        args += ["--shape-padding", str(padding)]
+    if data_filename:
+        args += ["--data", data_filename, "--format", data_format]
+        if list_tags:
+            args.append("--list-tags")
+    args += ["--sheet", output_filename]
+    return args
+
+
 @mcp.tool(
     annotations=ToolAnnotations(
         read_only_hint=True,
@@ -234,15 +333,12 @@ async def export_spritesheet(
     """Export frames as a sprite sheet, optionally with a JSON data file."""
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if sheet_type not in ("horizontal", "vertical", "rows", "columns", "packed"):
-        return "sheet_type must be one of: horizontal, vertical, rows, columns, packed"
-    if scale < 1 or scale > _EXPORT_SCALE_MAX:
-        return f"scale must be between 1 and {_EXPORT_SCALE_MAX}"
-    if padding < 0:
-        return "padding must be >= 0"
-    if data_format not in ("json-array", "json-hash"):
-        return "data_format must be 'json-array' or 'json-hash'"
-    err = reject_traversal(output_filename)
+    param_err = _validate_spritesheet_params(sheet_type, scale, padding, data_format)
+    if param_err:
+        return param_err
+    err = reject_traversal(output_filename) or (
+        reject_traversal(data_filename) if data_filename else None
+    )
     if err:
         return err
     if not output_filename.lower().endswith(".png"):
@@ -250,63 +346,25 @@ async def export_spritesheet(
 
     args = ["--batch"]
     if tag_name:
-        # Frame filters only apply to --sheet when they appear before
-        # the input file; resolve the tag to a 0-based --frame-range so
-        # missing tags produce a clear error.
-        safe_tag = lua_escape(tag_name)
-        script = f"""
-        local spr = app.activeSprite
-        if not spr then print("ERROR:No active sprite") return end
-        for _, tag in ipairs(spr.tags) do
-            if tag.name == "{safe_tag}" then
-                print("RANGE:" .. (tag.fromFrame.frameNumber - 1) .. "," .. (tag.toFrame.frameNumber - 1))
-                return
-            end
-        end
-        print("ERROR:Tag not found")
-        """
-        ok, out = AsepriteCommand.execute_lua_script_checked(script, filename)
-        if not ok:
-            return f"Failed to resolve tag: {out}"
-        frame_range = next(
-            (
-                line[len("RANGE:") :]
-                for line in out.splitlines()
-                if line.startswith("RANGE:")
-            ),
-            None,
-        )
+        frame_range, tag_err = _resolve_tag_frame_range(filename, tag_name)
         if frame_range is None:
-            return "Failed to resolve tag: no range returned"
+            return tag_err
         args += ["--frame-range", frame_range]
-    args.append(filename)
-    if scale > 1:
-        args += ["--scale", str(scale)]
-    args += ["--sheet-type", sheet_type]
-    if padding > 0:
-        args += ["--shape-padding", str(padding)]
-    if data_filename:
-        err = reject_traversal(data_filename)
-        if err:
-            return err
-        args += ["--data", data_filename, "--format", data_format]
-        if list_tags:
-            args.append("--list-tags")
-    args += ["--sheet", output_filename]
+    args += _build_spritesheet_args(
+        filename,
+        output_filename,
+        sheet_type,
+        data_filename,
+        scale,
+        padding,
+        data_format,
+        list_tags,
+    )
 
-    success, output = AsepriteCommand.run_command(args)
-    if success and not await path_exists(output_filename):
-        success = False
-        output = "Aseprite exited 0 but wrote no sheet file"
-    if success and data_filename and not await path_exists(data_filename):
-        success = False
-        output = "Aseprite exited 0 but wrote no data file"
-    if success:
-        msg = f"Sprite sheet exported to {output_filename} ({sheet_type})"
-        if data_filename:
-            msg += f" with data file {data_filename}"
-        return msg
-    return f"Failed to export sprite sheet: {output}"
+    run_result = AsepriteCommand.run_command(args)
+    return await _verify_spritesheet_output(
+        output_filename, sheet_type, data_filename, run_result
+    )
 
 
 @mcp.tool(
