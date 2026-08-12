@@ -37,6 +37,95 @@ _ANCHORS = (
 )
 
 
+def _text_layer_lua(layer_name: str | None, create_if_missing: bool) -> tuple[str, str]:
+    """Build the layer-lookup and create-layer-if-missing Lua fragments."""
+    layer_lookup = (
+        f'local target = find_layer(spr, "{lua_escape(layer_name)}")'
+        if layer_name
+        else "local target = app.activeLayer or spr.layers[1]"
+    )
+    create_layer = (
+        f"""
+        if not target then
+            if not {str(create_if_missing).lower()} then print("ERROR:Layer not found") return end
+            target = spr:newLayer()
+            target.name = "{lua_escape(layer_name)}"
+        end"""
+        if layer_name
+        else """
+        if not target then print("ERROR:No layer to draw on") return end"""
+    )
+    return layer_lookup, create_layer
+
+
+def _validate_draw_text_inputs(
+    anchor: str, color: str, outline_color: str | None, shadow_color: str | None
+) -> tuple[
+    str | None, tuple[int, int, int, int] | None, tuple[int, int, int, int] | None
+]:
+    """Check anchor + parse fill/outline/shadow colors.
+
+    Returns (error, outline_rgba, shadow_rgba). `error` is set and both
+    rgba values are None when the anchor or `color` itself is invalid;
+    fill's own rgba isn't returned since callers already have it via
+    parse_hex_color(color) and only need the error-or-not signal for it.
+    """
+    if anchor not in _ANCHORS:
+        return (
+            f"Invalid anchor '{anchor}'. Expected one of: {', '.join(sorted(_ANCHORS))}",
+            None,
+            None,
+        )
+    if parse_hex_color(color) is None:
+        return f"Invalid color value: {color}", None, None
+    outline_rgba = None
+    if outline_color:
+        outline_rgba = parse_hex_color(outline_color)
+        if outline_rgba is None:
+            return f"Invalid outline_color value: {outline_color}", None, None
+    shadow_rgba = None
+    if shadow_color:
+        shadow_rgba = parse_hex_color(shadow_color)
+        if shadow_rgba is None:
+            return f"Invalid shadow_color value: {shadow_color}", None, None
+    return None, outline_rgba, shadow_rgba
+
+
+def _build_outline_and_shadow(
+    ink: set[tuple[int, int]],
+    outline_rgba: tuple[int, int, int, int] | None,
+    outline_width: int,
+    outline_diagonal: bool,
+    shadow_rgba: tuple[int, int, int, int] | None,
+    shadow_dx: int,
+    shadow_dy: int,
+) -> tuple[set[tuple[int, int]], set[tuple[int, int]]]:
+    """Grow the outline ring and offset the shadow, both excluding ink pixels."""
+    outline: set[tuple[int, int]] = set()
+    if outline_rgba:
+        outline = set(ink)
+        for _ in range(max(1, outline_width)):
+            grown = set(outline)
+            for px, py in outline:
+                grown.update({(px - 1, py), (px + 1, py), (px, py - 1), (px, py + 1)})
+                if outline_diagonal:
+                    grown.update(
+                        {
+                            (px - 1, py - 1),
+                            (px + 1, py - 1),
+                            (px - 1, py + 1),
+                            (px + 1, py + 1),
+                        }
+                    )
+            outline = grown
+        outline -= ink
+    shadow = (
+        {(px + shadow_dx, py + shadow_dy) for px, py in ink} if shadow_rgba else set()
+    )
+    shadow -= ink | outline
+    return outline, shadow
+
+
 def _text_origin(
     anchor: str, x: int, y: int, metrics: dict[str, int]
 ) -> tuple[int, int]:
@@ -237,24 +326,13 @@ async def draw_text(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if anchor not in _ANCHORS:
-        return (
-            f"Invalid anchor '{anchor}'. Expected one of: {', '.join(sorted(_ANCHORS))}"
-        )
 
+    validation_err, outline_rgba, shadow_rgba = _validate_draw_text_inputs(
+        anchor, color, outline_color, shadow_color
+    )
+    if validation_err:
+        return validation_err
     fill = parse_hex_color(color)
-    if fill is None:
-        return f"Invalid color value: {color}"
-    outline_rgba = None
-    if outline_color:
-        outline_rgba = parse_hex_color(outline_color)
-        if outline_rgba is None:
-            return f"Invalid outline_color value: {outline_color}"
-    shadow_rgba = None
-    if shadow_color:
-        shadow_rgba = parse_hex_color(shadow_color)
-        if shadow_rgba is None:
-            return f"Invalid shadow_color value: {shadow_color}"
 
     try:
         f = fontlib.load_font(font)
@@ -266,28 +344,15 @@ async def draw_text(
         return "OK: nothing to draw (text has no visible glyphs)"
 
     # Build the layers of the stamp, back to front.
-    outline = set()
-    if outline_rgba:
-        outline = set(ink)
-        for _ in range(max(1, outline_width)):
-            grown = set(outline)
-            for px, py in outline:
-                grown.update({(px - 1, py), (px + 1, py), (px, py - 1), (px, py + 1)})
-                if outline_diagonal:
-                    grown.update(
-                        {
-                            (px - 1, py - 1),
-                            (px + 1, py - 1),
-                            (px - 1, py + 1),
-                            (px + 1, py + 1),
-                        }
-                    )
-            outline = grown
-        outline -= ink
-    shadow = (
-        {(px + shadow_dx, py + shadow_dy) for px, py in ink} if shadow_rgba else set()
+    outline, shadow = _build_outline_and_shadow(
+        ink,
+        outline_rgba,
+        outline_width,
+        outline_diagonal,
+        shadow_rgba,
+        shadow_dx,
+        shadow_dy,
     )
-    shadow -= ink | outline
 
     everything = ink | outline | shadow
     min_x = min(p[0] for p in everything)
@@ -317,22 +382,7 @@ async def draw_text(
     blit_x = origin_x + min_x
     blit_y = origin_y + min_y
     safe_png = lua_escape(os.path.abspath(tmp_name).replace("\\", "/"))
-    layer_lookup = (
-        f'local target = find_layer(spr, "{lua_escape(layer_name)}")'
-        if layer_name
-        else "local target = app.activeLayer or spr.layers[1]"
-    )
-    create_layer = (
-        f"""
-        if not target then
-            if not {str(create_if_missing).lower()} then print("ERROR:Layer not found") return end
-            target = spr:newLayer()
-            target.name = "{lua_escape(layer_name)}"
-        end"""
-        if layer_name
-        else """
-        if not target then print("ERROR:No layer to draw on") return end"""
-    )
+    layer_lookup, create_layer = _text_layer_lua(layer_name, create_if_missing)
 
     script = f"""
     {FIND_LAYER}
