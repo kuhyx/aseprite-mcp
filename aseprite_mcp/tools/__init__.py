@@ -60,3 +60,7 @@ from . import (
 from . import (
     transform as transform,
 )
+
+
+def register_all_tools() -> None:
+    """No-op: importing this package (already done above) registers every tool."""
