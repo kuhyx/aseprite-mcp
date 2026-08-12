@@ -10,30 +10,64 @@ from ..core.paths import path_exists
 _MAX_OPACITY = 255
 
 
+def _validate_sanitize_params(
+    start_frame: int,
+    end_frame: int | None,
+    max_overlaps: int,
+    out_of_range_action: str,
+    out_of_range_opacity: int,
+) -> str | None:
+    """Check animation_sanitize's scalar params; return an error string or None."""
+    if start_frame < 1:
+        return "Start frame must be >= 1"
+    if end_frame is not None and end_frame < start_frame:
+        return "End frame must be >= start frame"
+    if max_overlaps < 0:
+        return "max_overlaps must be >= 0"
+    if out_of_range_action not in {"set_opacity_zero", "delete_cels", "none"}:
+        return "Unsupported out_of_range_action"
+    if out_of_range_opacity < 0 or out_of_range_opacity > _MAX_OPACITY:
+        return f"out_of_range_opacity must be 0-{_MAX_OPACITY}"
+    return None
+
+
+def _lua_name_list(names: list[str] | None) -> str:
+    """Render `names` as a Lua string-array literal, or "nil" when absent."""
+    if not names:
+        return "nil"
+    return "{" + ",".join([f'"{lua_escape(name)}"' for name in names]) + "}"
+
+
+def _parse_spans(ranges_part: str) -> list[tuple[int, int]]:
+    """Parse a "start-end,start-end" span list, skipping malformed entries."""
+    spans = []
+    for raw_span in ranges_part.split(","):
+        span = raw_span.strip()
+        if "-" not in span:
+            continue
+        left, right = span.split("-", 1)
+        try:
+            start = int(left)
+            end = int(right)
+        except ValueError:
+            continue
+        if start > 0 and end >= start:
+            spans.append((start, end))
+    return spans
+
+
 def _parse_layer_frame_ranges(layer_frame_ranges: list[str] | None) -> str:
     ranges = {}
-    if layer_frame_ranges:
-        for entry in layer_frame_ranges:
-            if not entry or ":" not in entry:
-                continue
-            layer, ranges_part = entry.split(":", 1)
-            layer = layer.strip()
-            if not layer:
-                continue
-            spans = []
-            for raw_span in ranges_part.split(","):
-                span = raw_span.strip()
-                if "-" in span:
-                    left, right = span.split("-", 1)
-                    try:
-                        start = int(left)
-                        end = int(right)
-                    except ValueError:
-                        continue
-                    if start > 0 and end >= start:
-                        spans.append((start, end))
-            if spans:
-                ranges[layer] = spans
+    for entry in layer_frame_ranges or ():
+        if not entry or ":" not in entry:
+            continue
+        layer, ranges_part = entry.split(":", 1)
+        layer = layer.strip()
+        if not layer:
+            continue
+        spans = _parse_spans(ranges_part)
+        if spans:
+            ranges[layer] = spans
     ranges_lua = "{"
     for layer, spans in ranges.items():
         span_list = ",".join([f"{{{s},{e}}}" for s, e in spans])
@@ -637,35 +671,15 @@ async def animation_sanitize(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if start_frame < 1:
-        return "Start frame must be >= 1"
-    if end_frame is not None and end_frame < start_frame:
-        return "End frame must be >= start frame"
-    if max_overlaps < 0:
-        return "max_overlaps must be >= 0"
-    if out_of_range_action not in {"set_opacity_zero", "delete_cels", "none"}:
-        return "Unsupported out_of_range_action"
-    if out_of_range_opacity < 0 or out_of_range_opacity > _MAX_OPACITY:
-        return f"out_of_range_opacity must be 0-{_MAX_OPACITY}"
+    param_err = _validate_sanitize_params(
+        start_frame, end_frame, max_overlaps, out_of_range_action, out_of_range_opacity
+    )
+    if param_err:
+        return param_err
 
-    layers_lua = "nil"
-    if layer_names:
-        layers_lua = (
-            "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_names]) + "}"
-        )
-
-    order_lua = "nil"
-    if layer_order:
-        order_lua = (
-            "{" + ",".join([f'"{lua_escape(name)}"' for name in layer_order]) + "}"
-        )
-
-    ensure_lua = "nil"
-    if ensure_layers:
-        ensure_lua = (
-            "{" + ",".join([f'"{lua_escape(name)}"' for name in ensure_layers]) + "}"
-        )
-
+    layers_lua = _lua_name_list(layer_names)
+    order_lua = _lua_name_list(layer_order)
+    ensure_lua = _lua_name_list(ensure_layers)
     ranges_lua = _parse_layer_frame_ranges(layer_frame_ranges)
     pairs_lua = _parse_overlap_pairs(overlap_pairs)
 

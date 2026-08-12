@@ -12,6 +12,20 @@ from ..core.paths import path_exists
 _ONION_SCALE_MAX = 64
 _MAX_OPACITY = 255
 
+
+def _validate_onion_skin_params(
+    scale: int, ghost_opacity: int, before: int, after: int
+) -> str | None:
+    """Check onion-skin render params; return an error string or None."""
+    if scale < 1 or scale > _ONION_SCALE_MAX:
+        return f"scale must be between 1 and {_ONION_SCALE_MAX}"
+    if not (0 <= ghost_opacity <= _MAX_OPACITY):
+        return f"ghost_opacity must be between 0 and {_MAX_OPACITY}"
+    if before < 0 or after < 0:
+        return "before and after must be >= 0"
+    return None
+
+
 # Render a frame of the (cloned, flattened) sprite into a canvas-sized
 # RGB image. Used by the analysis tools so layer offsets and trimmed
 # cels do not skew results.
@@ -71,12 +85,9 @@ async def render_onion_skin(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if scale < 1 or scale > _ONION_SCALE_MAX:
-        return f"scale must be between 1 and {_ONION_SCALE_MAX}"
-    if not (0 <= ghost_opacity <= _MAX_OPACITY):
-        return f"ghost_opacity must be between 0 and {_MAX_OPACITY}"
-    if before < 0 or after < 0:
-        return "before and after must be >= 0"
+    param_err = _validate_onion_skin_params(scale, ghost_opacity, before, after)
+    if param_err:
+        return param_err
     err = reject_traversal(output_filename)
     if err:
         return err
