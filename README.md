@@ -289,6 +289,10 @@ Batch-mode equivalents of what a human artist gets from the Aseprite UI.
 5. **Shade with intent**: `adjust_hsl` for shadow layers, `apply_dither_gradient` for blends, `outline_cel` for readability.
 6. **Animate with the cel tools**: `propagate_cels`, then `tween_cel_positions_eased` / `oscillate_cel_positions`; verify with `render_onion_skin` and `compare_frames`; export with `export_tag`.
 
+For drawing anime/chibi character sprites and portraits specifically, see
+[`skills/anime-pixel-art/SKILL.md`](skills/anime-pixel-art/SKILL.md) — a
+step-by-step procedure with known failure modes and fixes.
+
 ## Docker Usage
 
 ### Quick Start
