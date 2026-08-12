@@ -116,23 +116,25 @@ class BitmapFont:
                 image = Image.open(os.path.join(path, sheet["file"])).convert("RGBA")
             except (OSError, KeyError) as exc:
                 raise FontError(f"Bad sheet in {descriptor}: {exc}") from exc
-            self._sheets.append({
-                "px": image.load(),
-                "size": image.size,
-                "cell_w": int(sheet["cell_w"]),
-                "cell_h": int(sheet["cell_h"]),
-                "ascent": int(sheet["ascent"]),
-                "origin": tuple(sheet.get("origin", (0, 0))),
-                # "alpha": a transparent pixel is empty and the cell is the glyph
-                #          box (Minecraft-style sheets).
-                # "dark":  an opaque white background delimits the glyph box and
-                #          dark pixels are the ink (Aseprite's own sheets).
-                "ink_rule": sheet.get("ink_rule", "alpha"),
-                # "ink": advance is the ink extent plus letter_gap.
-                # "box": advance is the glyph box width, which already carries
-                #        the font's own side bearing.
-                "advance": sheet.get("advance", "ink"),
-            })
+            self._sheets.append(
+                {
+                    "px": image.load(),
+                    "size": image.size,
+                    "cell_w": int(sheet["cell_w"]),
+                    "cell_h": int(sheet["cell_h"]),
+                    "ascent": int(sheet["ascent"]),
+                    "origin": tuple(sheet.get("origin", (0, 0))),
+                    # "alpha": a transparent pixel is empty and the cell is the glyph
+                    #          box (Minecraft-style sheets).
+                    # "dark":  an opaque white background delimits the glyph box and
+                    #          dark pixels are the ink (Aseprite's own sheets).
+                    "ink_rule": sheet.get("ink_rule", "alpha"),
+                    # "ink": advance is the ink extent plus letter_gap.
+                    # "box": advance is the glyph box width, which already carries
+                    #        the font's own side bearing.
+                    "advance": sheet.get("advance", "ink"),
+                }
+            )
             index = len(self._sheets) - 1
             for row, line in enumerate(sheet.get("chars") or ()):
                 for col, char in enumerate(line):
@@ -144,7 +146,9 @@ class BitmapFont:
             raise FontError(f"{descriptor} declares no sheets")
 
         self._overrides = {
-            int(key): _glyph_from_rows(entry["rows"], entry.get("ascent"), self.letter_gap)
+            int(key): _glyph_from_rows(
+                entry["rows"], entry.get("ascent"), self.letter_gap
+            )
             for key, entry in (spec.get("overrides") or {}).items()
         }
 
@@ -174,16 +178,29 @@ class BitmapFont:
 
         def is_background(x: int, y: int) -> bool:
             pixel = px[x, y]
-            return pixel[3] == 255 and pixel[0] == 255 and pixel[1] == 255 and pixel[2] == 255
+            return (
+                pixel[3] == 255
+                and pixel[0] == 255
+                and pixel[1] == 255
+                and pixel[2] == 255
+            )
 
         box_w, box_h = cell_w, cell_h
         if dark:
             # The box runs from the cell origin until the white sheet background.
             box_w = 0
-            while box_w < cell_w and ox + box_w < sheet_w and not is_background(ox + box_w, oy):
+            while (
+                box_w < cell_w
+                and ox + box_w < sheet_w
+                and not is_background(ox + box_w, oy)
+            ):
                 box_w += 1
             box_h = 0
-            while box_h < cell_h and oy + box_h < sheet_h and not is_background(ox, oy + box_h):
+            while (
+                box_h < cell_h
+                and oy + box_h < sheet_h
+                and not is_background(ox, oy + box_h)
+            ):
                 box_h += 1
 
         ink: set[Point] = set()
@@ -206,7 +223,9 @@ class BitmapFont:
             advance = (ink_width or self.space_width) + self.letter_gap
         return Glyph(ink=ink, advance=advance, ascent=sheet["ascent"], height=box_h)
 
-    def layout(self, text: str, scale: int, letter_spacing: int) -> tuple[set[Point], int]:
+    def layout(
+        self, text: str, scale: int, letter_spacing: int
+    ) -> tuple[set[Point], int]:
         """Rasterise `text`; x runs from the pen origin, y from the baseline."""
         ink: set[Point] = set()
         pen = 0
@@ -279,7 +298,9 @@ class TrueTypeFont:
         return ink, max(0, pen - letter_spacing)
 
     @staticmethod
-    def _raster(font, text: str, antialias: bool, threshold: int) -> tuple[set[Point], int]:
+    def _raster(
+        font, text: str, antialias: bool, threshold: int
+    ) -> tuple[set[Point], int]:
         """Rasterise `text`; x runs from the pen origin, y from the baseline."""
         ascent, descent = font.getmetrics()
         advance = int(round(font.getlength(text)))
@@ -293,6 +314,7 @@ class TrueTypeFont:
         canvas = Image.new("L", (width, height), 0)
         ImageDraw.Draw(canvas).text((pad, pad), text, font=font, fill=255)
         px = canvas.load()
+        assert px is not None  # freshly created image, always loadable
 
         cutoff = 1 if antialias else threshold
         ink = {
@@ -330,14 +352,21 @@ def _iter_system_fonts():
             continue
         for entry in entries:
             if entry.lower().endswith(_TTF_EXT):
-                yield os.path.splitext(entry)[0], os.path.join(directory, entry), "truetype"
+                yield (
+                    os.path.splitext(entry)[0],
+                    os.path.join(directory, entry),
+                    "truetype",
+                )
 
 
 def available_fonts() -> list[dict]:
     """User fonts first, then system fonts, de-duplicated by name."""
     seen: set[str] = set()
     found: list[dict] = []
-    for source, iterator in (("user", _iter_user_fonts()), ("system", _iter_system_fonts())):
+    for source, iterator in (
+        ("user", _iter_user_fonts()),
+        ("system", _iter_system_fonts()),
+    ):
         for name, path, kind in iterator:
             if name.lower() in seen:
                 continue
@@ -359,7 +388,9 @@ def load_font(spec: str) -> BitmapFont | TrueTypeFont:
 
     if os.path.sep in spec or spec.lower().endswith(_TTF_EXT):
         expanded = os.path.expanduser(spec)
-        if os.path.isdir(expanded) and os.path.exists(os.path.join(expanded, "font.json")):
+        if os.path.isdir(expanded) and os.path.exists(
+            os.path.join(expanded, "font.json")
+        ):
             path, kind = expanded, "bitmap"
         elif os.path.isfile(expanded):
             path, kind = expanded, "truetype"
@@ -417,7 +448,9 @@ def shape(
 
     if font.is_bitmap:
         if size < 1:
-            raise FontError("size is an integer scale factor for bitmap fonts; must be >= 1")
+            raise FontError(
+                "size is an integer scale factor for bitmap fonts; must be >= 1"
+            )
         ink, advance = font.layout(text, size, letter_spacing)
     else:
         if size < 1:

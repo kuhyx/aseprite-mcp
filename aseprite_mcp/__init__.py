@@ -1,8 +1,8 @@
 """Aseprite MCP - Model Context Protocol implementation for Aseprite."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
-mcp = FastMCP("aseprite")
+mcp = MCPServer("aseprite")
 
 __version__ = "0.1.0"
 __author__ = "Divyansh Singh"

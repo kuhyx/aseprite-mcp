@@ -205,9 +205,9 @@ async def compare_frames(filename: str, frame_a: int, frame_b: int) -> str:
 
     for line in output.splitlines():
         if line.startswith("DIFF:"):
-            parts = [int(p) for p in line[len("DIFF:"):].split(",")]
+            parts = [int(p) for p in line[len("DIFF:") :].split(",")]
             changed, total, min_x, min_y, max_x, max_y, any_change = parts
-            result = {
+            result: dict[str, object] = {
                 "frame_a": frame_a,
                 "frame_b": frame_b,
                 "changed_pixels": changed,
@@ -288,22 +288,24 @@ async def get_color_stats(filename: str, frame_index: int = 1, top: int = 16) ->
     if not success:
         return f"Failed to get color stats: {output}"
 
-    colors = []
+    colors: list[dict[str, str | int]] = []
     opaque = 0
     unique = 0
     for line in output.splitlines():
         if line.startswith("COLOR:"):
-            hex_color, count = line[len("COLOR:"):].split(",")
+            hex_color, count = line[len("COLOR:") :].split(",")
             colors.append({"color": hex_color, "count": int(count)})
         elif line.startswith("OPAQUE:"):
-            opaque = int(line[len("OPAQUE:"):])
+            opaque = int(line[len("OPAQUE:") :])
         elif line.startswith("UNIQUE:"):
-            unique = int(line[len("UNIQUE:"):])
+            unique = int(line[len("UNIQUE:") :])
 
-    colors.sort(key=lambda c: c["count"], reverse=True)
-    return json.dumps({
-        "frame": frame_index,
-        "unique_colors": unique,
-        "opaque_pixels": opaque,
-        "top_colors": colors[:top],
-    })
+    colors.sort(key=lambda c: int(c["count"]), reverse=True)
+    return json.dumps(
+        {
+            "frame": frame_index,
+            "unique_colors": unique,
+            "opaque_pixels": opaque,
+            "top_colors": colors[:top],
+        }
+    )

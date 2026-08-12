@@ -11,10 +11,10 @@ def lua_escape(s: str) -> str:
     """Escape a string for safe embedding inside a Lua double-quoted string literal."""
     return (
         s.replace("\\", "\\\\")
-         .replace('"', '\\"')
-         .replace("\n", "\\n")
-         .replace("\r", "\\r")
-         .replace("\0", "\\0")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\0", "\\0")
     )
 
 
@@ -38,46 +38,48 @@ def reject_traversal(path: str) -> str | None:
 
 class AsepriteCommand:
     """Helper class for running Aseprite commands."""
-    
+
     @staticmethod
-    def run_command(args):
+    def run_command(args: list[str]) -> tuple[bool, str]:
         """Run an Aseprite command with proper error handling.
-        
+
         Args:
             args: List of command arguments
-            
+
         Returns:
             tuple: (success, output) where success is a boolean and output is the command output
         """
         try:
-            cmd = [os.getenv('ASEPRITE_PATH', 'aseprite')] + args
+            cmd = [os.getenv("ASEPRITE_PATH", "aseprite")] + list(args)
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             return True, result.stdout
         except subprocess.CalledProcessError as e:
-            return False, e.stderr
-    
+            return False, str(e.stderr)
+
     @staticmethod
-    def execute_lua_script(script_content, filename=None):
+    def execute_lua_script(
+        script_content: str, filename: str | None = None
+    ) -> tuple[bool, str]:
         """Execute a Lua script in Aseprite.
-        
+
         Args:
             script_content: Lua script code to execute
             filename: Optional filename to open before executing script
-            
+
         Returns:
             tuple: (success, output)
         """
         # Create a temporary file for the script
-        with tempfile.NamedTemporaryFile(suffix='.lua', delete=False, mode='w') as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".lua", delete=False, mode="w") as tmp:
             tmp.write(script_content)
             script_path = tmp.name
-        
+
         try:
             args = ["--batch"]
             if filename and os.path.exists(filename):
                 args.append(filename)
             args.extend(["--script", script_path])
-            
+
             success, output = AsepriteCommand.run_command(args)
             return success, output
         finally:
@@ -85,7 +87,9 @@ class AsepriteCommand:
             os.remove(script_path)
 
     @staticmethod
-    def execute_lua_script_checked(script_content, filename=None):
+    def execute_lua_script_checked(
+        script_content: str, filename: str | None = None
+    ) -> tuple[bool, str]:
         """Execute a Lua script and surface in-script errors.
 
         Scripts using this helper signal failure by printing a line
@@ -101,5 +105,5 @@ class AsepriteCommand:
             return False, output
         for line in output.splitlines():
             if line.startswith("ERROR:"):
-                return False, line[len("ERROR:"):]
+                return False, line[len("ERROR:") :]
         return True, output

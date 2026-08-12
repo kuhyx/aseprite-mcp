@@ -5,8 +5,10 @@ import tempfile
 import signal
 from .. import mcp
 
+
 def _pid_path(port: int) -> str:
     return os.path.join(tempfile.gettempdir(), f"aseprite_mcp_preview_{port}.pid")
+
 
 def _pid_is_running(pid: int) -> bool:
     try:
@@ -15,13 +17,14 @@ def _pid_is_running(pid: int) -> bool:
                 ["tasklist", "/FI", f"PID eq {pid}"],
                 check=False,
                 capture_output=True,
-                text=True
+                text=True,
             )
             return str(pid) in result.stdout
         os.kill(pid, 0)
         return True
     except Exception:
         return False
+
 
 @mcp.tool()
 async def start_preview_server(directory: str, port: int = 8000) -> str:
@@ -46,16 +49,32 @@ async def start_preview_server(directory: str, port: int = 8000) -> str:
         os.remove(pid_file)
 
     args = [sys.executable, "-m", "http.server", str(port), "--directory", directory]
-    popen_kwargs = {"cwd": directory, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if os.name == "nt":
-        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        # CREATE_NEW_PROCESS_GROUP/DETACHED_PROCESS only exist in the
+        # subprocess module on Windows; getattr keeps this typecheckable
+        # on Linux/macOS where the module lacks those attributes entirely.
+        create_new_process_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        detached_process = getattr(subprocess, "DETACHED_PROCESS", 0)
+        proc = subprocess.Popen(
+            args,
+            cwd=directory,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=create_new_process_group | detached_process,
+        )
     else:
-        popen_kwargs["start_new_session"] = True
-    proc = subprocess.Popen(args, **popen_kwargs)
+        proc = subprocess.Popen(
+            args,
+            cwd=directory,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
     with open(pid_file, "w", encoding="utf-8") as f:
         f.write(str(proc.pid))
 
     return f"Preview server started: http://localhost:{port}/"
+
 
 @mcp.tool()
 async def stop_preview_server(port: int = 8000) -> str:
@@ -73,7 +92,11 @@ async def stop_preview_server(port: int = 8000) -> str:
 
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False, capture_output=True)
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                check=False,
+                capture_output=True,
+            )
         else:
             os.kill(pid, signal.SIGTERM)
     finally:

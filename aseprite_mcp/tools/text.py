@@ -17,10 +17,18 @@ from ..core import fonts as fontlib
 from .. import mcp
 
 _ANCHORS = (
-    "topleft", "top", "topright",
-    "left", "center", "right",
-    "bottomleft", "bottom", "bottomright",
-    "baselineleft", "baseline", "baselineright",
+    "topleft",
+    "top",
+    "topright",
+    "left",
+    "center",
+    "right",
+    "bottomleft",
+    "bottom",
+    "bottomright",
+    "baselineleft",
+    "baseline",
+    "baselineright",
 )
 
 
@@ -59,7 +67,7 @@ async def list_text_fonts() -> str:
     """
     try:
         found = fontlib.available_fonts()
-    except Exception as exc:                                # pragma: no cover
+    except Exception as exc:  # pragma: no cover
         return f"ERROR: {exc}"
     if not found:
         return "No fonts found. Drop a .ttf into ~/.aseprite-mcp/fonts/."
@@ -175,7 +183,9 @@ async def draw_text(
     if not os.path.exists(filename):
         return f"File {filename} not found"
     if anchor not in _ANCHORS:
-        return f"Invalid anchor '{anchor}'. Expected one of: {', '.join(sorted(_ANCHORS))}"
+        return (
+            f"Invalid anchor '{anchor}'. Expected one of: {', '.join(sorted(_ANCHORS))}"
+        )
 
     fill = parse_hex_color(color)
     if fill is None:
@@ -208,11 +218,19 @@ async def draw_text(
             for px, py in outline:
                 grown.update({(px - 1, py), (px + 1, py), (px, py - 1), (px, py + 1)})
                 if outline_diagonal:
-                    grown.update({(px - 1, py - 1), (px + 1, py - 1),
-                                  (px - 1, py + 1), (px + 1, py + 1)})
+                    grown.update(
+                        {
+                            (px - 1, py - 1),
+                            (px + 1, py - 1),
+                            (px - 1, py + 1),
+                            (px + 1, py + 1),
+                        }
+                    )
             outline = grown
         outline -= ink
-    shadow = {(px + shadow_dx, py + shadow_dy) for px, py in ink} if shadow_rgba else set()
+    shadow = (
+        {(px + shadow_dx, py + shadow_dy) for px, py in ink} if shadow_rgba else set()
+    )
     shadow -= ink | outline
 
     everything = ink | outline | shadow
@@ -227,12 +245,13 @@ async def draw_text(
     origin_x, origin_y = _text_origin(anchor, x, y, metrics)
 
     stamp = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    px = stamp.load()
+    pixels = stamp.load()
+    assert pixels is not None  # freshly created image, always loadable
     for group, rgba in ((shadow, shadow_rgba), (outline, outline_rgba), (ink, fill)):
         if not rgba:
             continue
         for gx, gy in group:
-            px[gx - min_x, gy - min_y] = rgba
+            pixels[gx - min_x, gy - min_y] = rgba
 
     tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
     tmp.close()
@@ -243,8 +262,8 @@ async def draw_text(
     safe_png = lua_escape(os.path.abspath(tmp.name).replace("\\", "/"))
     layer_lookup = (
         f'local target = find_layer(spr, "{lua_escape(layer_name)}")'
-        if layer_name else
-        "local target = app.activeLayer or spr.layers[1]"
+        if layer_name
+        else "local target = app.activeLayer or spr.layers[1]"
     )
     create_layer = (
         f'''
@@ -252,9 +271,10 @@ async def draw_text(
             if not {str(create_if_missing).lower()} then print("ERROR:Layer not found") return end
             target = spr:newLayer()
             target.name = "{lua_escape(layer_name)}"
-        end''' if layer_name else
-        '''
-        if not target then print("ERROR:No layer to draw on") return end'''
+        end'''
+        if layer_name
+        else """
+        if not target then print("ERROR:No layer to draw on") return end"""
     )
 
     script = f"""
@@ -290,5 +310,7 @@ async def draw_text(
 
     if not success:
         return f"Error drawing text: {output}"
-    return (f"Drew '{text}' at ({blit_x}, {blit_y}), "
-            f"text box {metrics['width']}x{metrics['height']}, stamp {w}x{h}")
+    return (
+        f"Drew '{text}' at ({blit_x}, {blit_y}), "
+        f"text box {metrics['width']}x{metrics['height']}, stamp {w}x{h}"
+    )
