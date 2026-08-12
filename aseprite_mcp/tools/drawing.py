@@ -20,8 +20,8 @@ def _parse_write_counts(output: str, total: int) -> tuple[int, int]:
     Falls back to assuming everything landed when the marker is absent, so
     older scripts keep working.
     """
-    for line in output.splitlines():
-        line = line.strip()
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
         if line.startswith("OK:"):
             parts = line.split(":")
             if len(parts) >= _OK_MARKER_FIELD_COUNT:

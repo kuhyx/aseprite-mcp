@@ -106,7 +106,8 @@ class BitmapFont:
 
     is_bitmap = True
 
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
+        """Load and parse `path`'s font.json descriptor and sheet images."""
         descriptor = Path(path, "font.json")
         try:
             with descriptor.open(encoding="utf-8") as fh:
@@ -163,6 +164,7 @@ class BitmapFont:
         }
 
     def glyph(self, codepoint: int) -> Glyph | None:
+        """Resolve and cache the glyph for `codepoint`, or None if unmapped."""
         if codepoint in self._cache:
             return self._cache[codepoint]
 
@@ -277,9 +279,12 @@ def _glyph_from_rows(rows: list[str], ascent: int | None, letter_gap: int) -> Gl
 
 
 class TrueTypeFont:
+    """A .ttf/.otf font file, rasterised on demand at a given pixel size."""
+
     is_bitmap = False
 
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
+        """Point at `path`; the font isn't loaded until layout() runs."""
         self.path = path
         self.name = Path(path).stem
 
@@ -291,6 +296,7 @@ class TrueTypeFont:
         antialias: bool = False,
         threshold: int = 128,
     ) -> tuple[set[Point], int]:
+        """Rasterise `text` and return the set of inked pixels plus advance width."""
         try:
             font = ImageFont.truetype(self.path, size)
         except OSError as exc:

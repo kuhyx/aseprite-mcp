@@ -1,3 +1,5 @@
+"""Every MCP tool module; importing this package registers all @mcp.tool()s."""
+
 from . import (
     analysis as analysis,
 )

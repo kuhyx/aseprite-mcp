@@ -11,10 +11,10 @@ from pathlib import Path
 
 
 async def path_exists(path: str) -> bool:
-    """True if `path` exists (file or directory)."""
+    """Check whether `path` exists (file or directory)."""
     return await asyncio.to_thread(lambda: Path(path).exists())
 
 
 async def path_is_dir(path: str) -> bool:
-    """True if `path` exists and is a directory."""
+    """Check whether `path` exists and is a directory."""
     return await asyncio.to_thread(lambda: Path(path).is_dir())

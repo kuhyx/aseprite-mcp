@@ -17,9 +17,10 @@ def build_native_command_script(
     frame_index: int = 1,
     region: tuple[int, int, int, int] | None = None,
 ) -> str:
-    """Wrap an `app.command.X{ui=false,...}` snippet with target activation,
-    an optional selection scope, a transaction, save, and the ERROR:/OK
-    protocol used by the checked-execution path.
+    """Wrap an `app.command.X{ui=false,...}` snippet with target activation.
+
+    Adds an optional selection scope, a transaction, save, and the
+    ERROR:/OK protocol used by the checked-execution path.
 
     Args:
         command_lua: the `app.command.X{ui=false, ...}` Lua line(s)

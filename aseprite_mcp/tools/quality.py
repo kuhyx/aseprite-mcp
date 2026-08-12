@@ -21,8 +21,8 @@ def _parse_layer_frame_ranges(layer_frame_ranges: list[str] | None) -> str:
             if not layer:
                 continue
             spans = []
-            for span in ranges_part.split(","):
-                span = span.strip()
+            for raw_span in ranges_part.split(","):
+                span = raw_span.strip()
                 if "-" in span:
                     left, right = span.split("-", 1)
                     try:
