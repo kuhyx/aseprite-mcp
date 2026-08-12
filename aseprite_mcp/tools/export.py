@@ -10,6 +10,8 @@ from ..core.commands import AsepriteCommand, lua_escape, reject_traversal
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL
 from ..core.paths import path_exists
 
+_EXPORT_SCALE_MAX = 64
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -143,8 +145,8 @@ async def export_frame(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if scale < 1 or scale > 64:
-        return "scale must be between 1 and 64"
+    if scale < 1 or scale > _EXPORT_SCALE_MAX:
+        return f"scale must be between 1 and {_EXPORT_SCALE_MAX}"
     err = reject_traversal(output_filename)
     if err:
         return err
@@ -231,8 +233,8 @@ async def export_spritesheet(
         return f"File {filename} not found"
     if sheet_type not in ("horizontal", "vertical", "rows", "columns", "packed"):
         return "sheet_type must be one of: horizontal, vertical, rows, columns, packed"
-    if scale < 1 or scale > 64:
-        return "scale must be between 1 and 64"
+    if scale < 1 or scale > _EXPORT_SCALE_MAX:
+        return f"scale must be between 1 and {_EXPORT_SCALE_MAX}"
     if padding < 0:
         return "padding must be >= 0"
     if data_format not in ("json-array", "json-hash"):
@@ -369,8 +371,8 @@ async def export_tag(
     """Export the frames of an animation tag as a GIF or PNG sequence."""
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if scale < 1 or scale > 64:
-        return "scale must be between 1 and 64"
+    if scale < 1 or scale > _EXPORT_SCALE_MAX:
+        return f"scale must be between 1 and {_EXPORT_SCALE_MAX}"
     err = reject_traversal(output_filename)
     if err:
         return err

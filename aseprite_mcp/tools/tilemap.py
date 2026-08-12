@@ -9,12 +9,14 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
 from ..core.paths import path_exists
 
+_RRGGBB_LENGTH = 6
+
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     if not value:
         return None
     hex_color = value.lstrip("#")
-    if len(hex_color) != 6:
+    if len(hex_color) != _RRGGBB_LENGTH:
         return None
     try:
         r = int(hex_color[0:2], 16)

@@ -7,6 +7,8 @@ from .. import mcp
 from ..core.commands import AsepriteCommand, lua_escape
 from ..core.paths import path_exists
 
+_MAX_OPACITY = 255
+
 
 def _parse_layer_frame_ranges(layer_frame_ranges: list[str] | None) -> str:
     ranges = {}
@@ -643,8 +645,8 @@ async def animation_sanitize(
         return "max_overlaps must be >= 0"
     if out_of_range_action not in {"set_opacity_zero", "delete_cels", "none"}:
         return "Unsupported out_of_range_action"
-    if out_of_range_opacity < 0 or out_of_range_opacity > 255:
-        return "out_of_range_opacity must be 0-255"
+    if out_of_range_opacity < 0 or out_of_range_opacity > _MAX_OPACITY:
+        return f"out_of_range_opacity must be 0-{_MAX_OPACITY}"
 
     layers_lua = "nil"
     if layer_names:

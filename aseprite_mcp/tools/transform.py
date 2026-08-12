@@ -8,6 +8,10 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
 from ..core.paths import path_exists
 
+_ROTATE_90 = 90
+_ROTATE_180 = 180
+_ROTATE_270 = 270
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -102,12 +106,12 @@ async def rotate_layer(
     """Rotate a layer's image 90, 180, or 270 degrees clockwise."""
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if angle not in (90, 180, 270):
+    if angle not in (_ROTATE_90, _ROTATE_180, _ROTATE_270):
         return "angle must be 90, 180, or 270"
 
     safe_layer = lua_escape(layer_name)
 
-    if angle == 180:
+    if angle == _ROTATE_180:
         rotate_lua = """
         local w = img.width
         local h = img.height
@@ -124,7 +128,7 @@ async def rotate_layer(
             end
         end
         """
-    elif angle == 90:
+    elif angle == _ROTATE_90:
         # 90° clockwise: (px, py) → (old_h-1-py, px) in new image (new_w=old_h, new_h=old_w)
         rotate_lua = """
         local old_w = img.width

@@ -9,6 +9,10 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, HSL, NORMALIZE_CEL, PSET
 from ..core.paths import path_exists
 
+_MAX_COLOR_TOLERANCE = 255
+_HUE_SHIFT_MAX = 360
+_PERCENT_SHIFT_MAX = 100
+
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     """RGB-only parse (alpha dropped); unified via core.colors.parse_hex_color."""
@@ -131,8 +135,8 @@ async def replace_color(
     dst = _parse_hex_color(to_color)
     if src is None or dst is None:
         return "Colors must use #RRGGBB values"
-    if tolerance < 0 or tolerance > 255:
-        return "Tolerance must be between 0 and 255"
+    if tolerance < 0 or tolerance > _MAX_COLOR_TOLERANCE:
+        return f"Tolerance must be between 0 and {_MAX_COLOR_TOLERANCE}"
     sr, sg, sb = src
     dr, dg, db = dst
 
@@ -220,12 +224,18 @@ async def adjust_hsl(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if not (-360 <= hue_shift <= 360):
-        return "hue_shift must be between -360 and 360"
-    if not (-100 <= saturation_shift <= 100):
-        return "saturation_shift must be between -100 and 100"
-    if not (-100 <= lightness_shift <= 100):
-        return "lightness_shift must be between -100 and 100"
+    if not (-_HUE_SHIFT_MAX <= hue_shift <= _HUE_SHIFT_MAX):
+        return f"hue_shift must be between -{_HUE_SHIFT_MAX} and {_HUE_SHIFT_MAX}"
+    if not (-_PERCENT_SHIFT_MAX <= saturation_shift <= _PERCENT_SHIFT_MAX):
+        return (
+            f"saturation_shift must be between -{_PERCENT_SHIFT_MAX} "
+            f"and {_PERCENT_SHIFT_MAX}"
+        )
+    if not (-_PERCENT_SHIFT_MAX <= lightness_shift <= _PERCENT_SHIFT_MAX):
+        return (
+            f"lightness_shift must be between -{_PERCENT_SHIFT_MAX} "
+            f"and {_PERCENT_SHIFT_MAX}"
+        )
 
     safe_layer = lua_escape(layer_name)
     script = f"""

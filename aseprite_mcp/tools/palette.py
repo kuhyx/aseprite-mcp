@@ -11,6 +11,9 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
 from ..core.paths import path_exists
 
+_RAMP_STEPS_MIN = 2
+_RAMP_STEPS_MAX = 16
+
 # Well-known retro/pixel-art palettes.
 PALETTE_PRESETS = {
     "gameboy": ["#0F380F", "#306230", "#8BAC0F", "#9BBC0F"],
@@ -438,8 +441,8 @@ async def generate_color_ramp(
     rgb = _parse_hex_color(base_color)
     if rgb is None:
         return f"Invalid color value: {base_color}"
-    if not (2 <= steps <= 16):
-        return "steps must be between 2 and 16"
+    if not (_RAMP_STEPS_MIN <= steps <= _RAMP_STEPS_MAX):
+        return f"steps must be between {_RAMP_STEPS_MIN} and {_RAMP_STEPS_MAX}"
     if not (0 <= lightness_range <= 1):
         return "lightness_range must be between 0 and 1"
 

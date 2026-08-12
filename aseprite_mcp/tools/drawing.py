@@ -9,6 +9,10 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
 from ..core.paths import path_exists
 
+_OK_MARKER_FIELD_COUNT = 3
+_MIN_POLYGON_POINTS = 3
+_MIN_PATH_POINTS = 2
+
 
 def _parse_write_counts(output: str, total: int) -> tuple[int, int]:
     """Read the 'OK:<written>:<skipped>' marker emitted by draw_pixels_at.
@@ -20,7 +24,7 @@ def _parse_write_counts(output: str, total: int) -> tuple[int, int]:
         line = line.strip()
         if line.startswith("OK:"):
             parts = line.split(":")
-            if len(parts) >= 3:
+            if len(parts) >= _OK_MARKER_FIELD_COUNT:
                 try:
                     return int(parts[1]), int(parts[2])
                 except ValueError:
@@ -1038,8 +1042,8 @@ async def draw_polygon(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if len(points) < 3:
-        return "Polygon requires at least 3 points"
+    if len(points) < _MIN_POLYGON_POINTS:
+        return f"Polygon requires at least {_MIN_POLYGON_POINTS} points"
 
     rgb = _parse_hex_color(color)
     if rgb is None:
@@ -1178,8 +1182,8 @@ async def draw_path(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if len(points) < 2:
-        return "Path requires at least 2 points"
+    if len(points) < _MIN_PATH_POINTS:
+        return f"Path requires at least {_MIN_PATH_POINTS} points"
 
     rgb = _parse_hex_color(color)
     if rgb is None:

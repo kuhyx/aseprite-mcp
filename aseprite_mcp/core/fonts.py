@@ -69,6 +69,9 @@ _SYSTEM_FONT_DIRS = (
 
 _TTF_EXT = (".ttf", ".otf", ".ttc")
 
+_MAX_CHANNEL_VALUE = 255
+_DARK_LIGHTNESS_THRESHOLD = 128
+
 Point = tuple[int, int]
 
 
@@ -183,10 +186,10 @@ class BitmapFont:
         def is_background(x: int, y: int) -> bool:
             pixel = px[x, y]
             return bool(
-                pixel[3] == 255
-                and pixel[0] == 255
-                and pixel[1] == 255
-                and pixel[2] == 255
+                pixel[3] == _MAX_CHANNEL_VALUE
+                and pixel[0] == _MAX_CHANNEL_VALUE
+                and pixel[1] == _MAX_CHANNEL_VALUE
+                and pixel[2] == _MAX_CHANNEL_VALUE
             )
 
         box_w, box_h = cell_w, cell_h
@@ -213,7 +216,8 @@ class BitmapFont:
             for x in range(box_w):
                 pixel = px[ox + x, oy + y]
                 lit = (
-                    pixel[3] > 0 and max(pixel[0], pixel[1], pixel[2]) < 128
+                    pixel[3] > 0
+                    and max(pixel[0], pixel[1], pixel[2]) < _DARK_LIGHTNESS_THRESHOLD
                     if dark
                     else pixel[3] > 0
                 )

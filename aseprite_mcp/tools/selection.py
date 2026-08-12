@@ -9,6 +9,8 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
 from ..core.paths import path_exists
 
+_MAX_COLOR_TOLERANCE = 255
+
 
 def _parse_hex_color(value: str) -> tuple[int, int, int] | None:
     """RGB-only parse (alpha dropped); unified via core.colors.parse_hex_color."""
@@ -299,8 +301,8 @@ async def erase_color(
     if rgb is None:
         return f"Invalid color value: {color}"
     r, g, b = rgb
-    if tolerance < 0 or tolerance > 255:
-        return "Tolerance must be between 0 and 255"
+    if tolerance < 0 or tolerance > _MAX_COLOR_TOLERANCE:
+        return f"Tolerance must be between 0 and {_MAX_COLOR_TOLERANCE}"
 
     safe_layer = lua_escape(layer_name)
     script = f"""

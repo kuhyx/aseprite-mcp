@@ -8,6 +8,8 @@ from ..core.commands import AsepriteCommand, lua_escape
 from ..core.lua import FIND_LAYER
 from ..core.paths import path_exists
 
+_MAX_OPACITY = 255
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -162,8 +164,8 @@ async def set_layer_opacity(
     """Set layer opacity by name (0-255)."""
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if opacity < 0 or opacity > 255:
-        return "Opacity must be between 0 and 255"
+    if opacity < 0 or opacity > _MAX_OPACITY:
+        return f"Opacity must be between 0 and {_MAX_OPACITY}"
 
     safe_layer_name = lua_escape(layer_name)
     script = f"""
@@ -1078,8 +1080,8 @@ async def set_onion_skin(
         return f"File {filename} not found"
     if before < 0 or after < 0:
         return "Before/after must be >= 0"
-    if opacity < 0 or opacity > 255:
-        return "Opacity must be between 0 and 255"
+    if opacity < 0 or opacity > _MAX_OPACITY:
+        return f"Opacity must be between 0 and {_MAX_OPACITY}"
 
     return (
         "Onion skin settings are UI-only in batch mode; no changes applied "
@@ -1514,8 +1516,13 @@ async def tween_cel_opacity_eased(
     """Tween cel opacity with easing across a frame range."""
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if start_opacity < 0 or start_opacity > 255 or end_opacity < 0 or end_opacity > 255:
-        return "Opacity must be between 0 and 255"
+    if (
+        start_opacity < 0
+        or start_opacity > _MAX_OPACITY
+        or end_opacity < 0
+        or end_opacity > _MAX_OPACITY
+    ):
+        return f"Opacity must be between 0 and {_MAX_OPACITY}"
 
     easing = (easing or "smoothstep").lower().strip()
     if easing not in {"linear", "ease_in", "ease_out", "ease_in_out", "smoothstep"}:
@@ -1892,8 +1899,8 @@ async def set_cel_opacity(
     """Set the opacity of a single cel (0-255)."""
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if not (0 <= opacity <= 255):
-        return "Opacity must be between 0 and 255"
+    if not (0 <= opacity <= _MAX_OPACITY):
+        return f"Opacity must be between 0 and {_MAX_OPACITY}"
 
     safe_layer = lua_escape(layer_name)
     script = f"""

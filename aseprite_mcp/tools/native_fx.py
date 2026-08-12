@@ -21,6 +21,10 @@ from ..core.native import build_native_command_script
 from ..core.paths import path_exists
 from .fx import _parse_hex_color
 
+_HUE_MAX = 180
+_PERCENT_SHIFT_MAX = 100
+_PALETTE_SIZE_MAX = 256
+
 # Built-in convolution-matrix resource names (Aseprite data/convmatr.def).
 CONVOLUTION_MATRICES = frozenset(
     {
@@ -173,10 +177,15 @@ async def adjust_hsl_native(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if not (-180 <= hue <= 180):
-        return "hue must be -180..180"
-    if not (-100 <= saturation <= 100) or not (-100 <= lightness <= 100):
-        return "saturation and lightness must be -100..100"
+    if not (-_HUE_MAX <= hue <= _HUE_MAX):
+        return f"hue must be -{_HUE_MAX}..{_HUE_MAX}"
+    if not (-_PERCENT_SHIFT_MAX <= saturation <= _PERCENT_SHIFT_MAX) or not (
+        -_PERCENT_SHIFT_MAX <= lightness <= _PERCENT_SHIFT_MAX
+    ):
+        return (
+            f"saturation and lightness must be "
+            f"-{_PERCENT_SHIFT_MAX}..{_PERCENT_SHIFT_MAX}"
+        )
     cmd = (
         f"        app.command.HueSaturation{{ui=false, hue={hue}, "
         f"saturation={saturation}, lightness={lightness}, alpha=0}}"
@@ -238,8 +247,13 @@ async def adjust_brightness_contrast(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if not (-100 <= brightness <= 100) or not (-100 <= contrast <= 100):
-        return "brightness and contrast must be -100..100"
+    if not (-_PERCENT_SHIFT_MAX <= brightness <= _PERCENT_SHIFT_MAX) or not (
+        -_PERCENT_SHIFT_MAX <= contrast <= _PERCENT_SHIFT_MAX
+    ):
+        return (
+            f"brightness and contrast must be "
+            f"-{_PERCENT_SHIFT_MAX}..{_PERCENT_SHIFT_MAX}"
+        )
     cmd = (
         f"        app.command.BrightnessContrast{{ui=false, "
         f"brightness={brightness}, contrast={contrast}}}"
@@ -424,8 +438,8 @@ async def extract_palette(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
-    if not (1 <= max_colors <= 256):
-        return "max_colors must be 1..256"
+    if not (1 <= max_colors <= _PALETTE_SIZE_MAX):
+        return f"max_colors must be 1..{_PALETTE_SIZE_MAX}"
     wa = "true" if with_alpha else "false"
     script = f"""
     local spr = app.activeSprite
