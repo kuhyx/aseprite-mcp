@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Annotated
 
@@ -507,7 +506,7 @@ async def import_image_as_layer(
         return f"Image {image_path} not found"
 
     safe_layer = lua_escape(layer_name)
-    safe_image = lua_escape(os.path.abspath(image_path).replace("\\", "/"))
+    safe_image = lua_escape(str(Path(image_path).resolve()).replace("\\", "/"))
     script = f"""
     {FIND_LAYER}
     {NORMALIZE_CEL}

@@ -5,7 +5,6 @@ TrueType tests need something installed, and they skip when nothing is found.
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -440,17 +439,17 @@ def test_draw_text_font_load_error_is_reported(sprite):
 def test_draw_text_tolerates_temp_file_cleanup_failure(
     sprite, bitmap_font, monkeypatch
 ):
-    # The finally-block os.unlink(tmp.name) can race a concurrent cleanup
-    # or antivirus lock; the swallowed OSError must not surface to the
-    # caller or block the real success/failure result.
-    real_unlink = os.unlink
+    # The finally-block Path(tmp_name).unlink() can race a concurrent
+    # cleanup or antivirus lock; the swallowed OSError must not surface to
+    # the caller or block the real success/failure result.
+    real_unlink = Path.unlink
 
-    def flaky_unlink(path):
-        if str(path).endswith(".png"):
+    def flaky_unlink(self, *args, **kwargs):
+        if str(self).endswith(".png"):
             raise OSError("simulated cleanup failure")
-        real_unlink(path)
+        return real_unlink(self, *args, **kwargs)
 
-    monkeypatch.setattr(text.os, "unlink", flaky_unlink)
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
     out = ok(run(text.draw_text(sprite, "A", 0, 0, bitmap_font)))
     assert "Drew" in out
 

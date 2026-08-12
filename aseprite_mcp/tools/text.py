@@ -5,7 +5,6 @@ result is blitted into the sprite as an image.
 """
 
 import contextlib
-import os
 import tempfile
 from pathlib import Path
 from typing import Annotated
@@ -381,7 +380,7 @@ async def draw_text(
 
     blit_x = origin_x + min_x
     blit_y = origin_y + min_y
-    safe_png = lua_escape(os.path.abspath(tmp_name).replace("\\", "/"))
+    safe_png = lua_escape(str(Path(tmp_name).resolve()).replace("\\", "/"))
     layer_lookup, create_layer = _text_layer_lua(layer_name, create_if_missing)
 
     script = f"""

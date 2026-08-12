@@ -113,7 +113,8 @@ class BitmapFont:
             with descriptor.open(encoding="utf-8") as fh:
                 spec = json.load(fh)
         except (OSError, ValueError) as exc:
-            raise FontError(f"Could not read {descriptor}: {exc}") from exc
+            msg = f"Could not read {descriptor}: {exc}"
+            raise FontError(msg) from exc
 
         self.name = spec.get("name", Path(path).name)
         self.letter_gap = int(spec.get("letter_gap", 1))
@@ -126,7 +127,8 @@ class BitmapFont:
             try:
                 image = Image.open(Path(path, sheet["file"])).convert("RGBA")
             except (OSError, KeyError) as exc:
-                raise FontError(f"Bad sheet in {descriptor}: {exc}") from exc
+                msg = f"Bad sheet in {descriptor}: {exc}"
+                raise FontError(msg) from exc
             self._sheets.append(
                 {
                     "px": image.load(),
@@ -154,7 +156,8 @@ class BitmapFont:
                         self._index[codepoint] = (index, row, col)
 
         if not self._sheets:
-            raise FontError(f"{descriptor} declares no sheets")
+            msg = f"{descriptor} declares no sheets"
+            raise FontError(msg)
 
         self._overrides = {
             int(key): _glyph_from_rows(
@@ -300,7 +303,8 @@ class TrueTypeFont:
         try:
             font = ImageFont.truetype(self.path, size)
         except OSError as exc:
-            raise FontError(f"Could not load font {self.path}: {exc}") from exc
+            msg = f"Could not load font {self.path}: {exc}"
+            raise FontError(msg) from exc
 
         if not letter_spacing:
             return self._raster(font, text, antialias, threshold)
@@ -331,8 +335,9 @@ class TrueTypeFont:
         canvas = Image.new("L", (width, height), 0)
         ImageDraw.Draw(canvas).text((pad, pad), text, font=font, fill=255)
         px = canvas.load()
-        if px is None:
-            raise FontError("freshly created image failed to load")  # pragma: no cover
+        if px is None:  # pragma: no cover
+            msg = "freshly created image failed to load"
+            raise FontError(msg)
 
         cutoff = 1 if antialias else threshold
         ink = set()
@@ -341,10 +346,9 @@ class TrueTypeFont:
                 # "L" mode is single-channel, so this is always an int, but
                 # PixelAccess.__getitem__ is typed for every image mode.
                 value = px[x, y]
-                if not isinstance(value, int):
-                    raise FontError(  # pragma: no cover
-                        "unexpected pixel type for 'L' mode image"
-                    )
+                if not isinstance(value, int):  # pragma: no cover
+                    msg = "unexpected pixel type for 'L' mode image"
+                    raise FontError(msg)
                 if value >= cutoff:
                     ink.add((x - pad, y - pad - ascent))
         return ink, advance

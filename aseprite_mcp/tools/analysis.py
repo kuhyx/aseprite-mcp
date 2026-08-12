@@ -1,5 +1,5 @@
 import json
-import os
+from pathlib import Path
 from typing import Annotated
 
 from mcp.types import ToolAnnotations
@@ -94,7 +94,7 @@ async def render_onion_skin(
     if not output_filename.lower().endswith(".png"):
         output_filename = f"{output_filename}.png"
 
-    safe_out = lua_escape(os.path.abspath(output_filename).replace("\\", "/"))
+    safe_out = lua_escape(str(Path(output_filename).resolve()).replace("\\", "/"))
     script = f"""
     {_FLATTEN_FRAME}
     local spr = app.activeSprite
