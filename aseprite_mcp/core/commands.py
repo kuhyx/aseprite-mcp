@@ -55,9 +55,10 @@ class AsepriteCommand:
         try:
             cmd = [os.getenv("ASEPRITE_PATH", "aseprite"), *args]
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-            return True, result.stdout
         except subprocess.CalledProcessError as e:
             return False, str(e.stderr)
+        else:
+            return True, result.stdout
 
     @staticmethod
     def execute_lua_script(

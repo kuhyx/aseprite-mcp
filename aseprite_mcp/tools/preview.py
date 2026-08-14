@@ -29,9 +29,10 @@ def _pid_is_running(pid: int) -> bool:
             )
             return str(pid) in result.stdout
         os.kill(pid, 0)
-        return True
     except (OSError, subprocess.SubprocessError):
         return False
+    else:
+        return True
 
 
 def _read_pid_file(pid_file: str) -> int:

@@ -427,10 +427,11 @@ def load_font(spec: str) -> BitmapFont | TrueTypeFont:
                 break
 
     if path is None:
-        raise FontError(
+        msg = (
             f"Font '{spec}' not found. Call list_text_fonts to see what is available, "
             f"or pass a path to a .ttf/.otf file or to a bitmap font directory."
         )
+        raise FontError(msg)
 
     font = BitmapFont(path) if kind == "bitmap" else TrueTypeFont(path)
     _loaded[spec] = font
@@ -469,17 +470,18 @@ def shape(
     from the baseline on y, so anything above the baseline is negative.
     """
     if bold < 0:
-        raise FontError("bold must be >= 0")
+        msg = "bold must be >= 0"
+        raise FontError(msg)
 
     if isinstance(font, BitmapFont):
         if size < 1:
-            raise FontError(
-                "size is an integer scale factor for bitmap fonts; must be >= 1"
-            )
+            msg = "size is an integer scale factor for bitmap fonts; must be >= 1"
+            raise FontError(msg)
         ink, advance = font.layout(text, size, letter_spacing)
     else:
         if size < 1:
-            raise FontError("size is a pixel height for TrueType fonts; must be >= 1")
+            msg = "size is a pixel height for TrueType fonts; must be >= 1"
+            raise FontError(msg)
         ink, advance = font.layout(text, size, letter_spacing, antialias, threshold)
 
     if bold:
