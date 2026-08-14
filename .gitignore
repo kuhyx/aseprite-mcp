@@ -52,3 +52,8 @@ coverage.xml
 !examples/swordsman/swordsman.png
 !examples/swordsman/swordsman_slash.gif
 !examples/swordsman/swordsman_slash_sheet.png
+
+# Third-party reference sheets, vendored deliberately for measuring pixel-art
+# conventions. Licences and attribution are in references/CREDITS.md — read it
+# before reusing these, one set is CC-BY-SA (ShareAlike), the rest are CC0.
+!references/**/*.png
