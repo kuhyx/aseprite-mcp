@@ -7,72 +7,78 @@ from conftest import ok, run
 from aseprite_mcp.tools import canvas, drawing, layers
 
 
-def test_rename_layer(sprite):
+def test_rename_layer(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "detail")))
-    ok(run(drawing.draw_ellipse_at(sprite, "detail", 1, 16, 16, 6, 4, "#306230", True)))
+    ok(
+        run(
+            drawing.draw_ellipse_at(
+                sprite, "detail", 1, 16, 16, 6, 4, "#306230", fill=True
+            )
+        )
+    )
     ok(run(layers.rename_layer(sprite, "detail", "shade")))
 
 
-def test_duplicate_layer(sprite):
+def test_duplicate_layer(sprite: str) -> None:
     result = ok(run(layers.duplicate_layer(sprite, "shade")))
     assert "shade copy" in result
 
 
-def test_set_layer_blend_mode(sprite):
+def test_set_layer_blend_mode(sprite: str) -> None:
     ok(run(layers.set_layer_blend_mode(sprite, "shade copy", "multiply")))
 
 
-def test_set_layer_blend_mode_rejects_unknown(sprite):
+def test_set_layer_blend_mode_rejects_unknown(sprite: str) -> None:
     result = run(layers.set_layer_blend_mode(sprite, "shade copy", "nonsense"))
     assert result.startswith("Unknown blend mode")
 
 
-def test_reorder_layer(sprite):
+def test_reorder_layer(sprite: str) -> None:
     ok(run(layers.reorder_layer(sprite, "shade copy", 1)))
 
 
-def test_merge_layer_down(sprite):
+def test_merge_layer_down(sprite: str) -> None:
     ok(run(layers.merge_layer_down(sprite, "body")))
 
 
-def test_delete_layer(sprite):
+def test_delete_layer(sprite: str) -> None:
     ok(run(layers.delete_layer(sprite, "shade")))
 
 
-def test_flatten_sprite(sprite):
+def test_flatten_sprite(sprite: str) -> None:
     ok(run(layers.flatten_sprite(sprite)))
 
 
 # ── file-not-found guards ───────────────────────────────────────────────
 
 
-def test_delete_layer_missing_file():
+def test_delete_layer_missing_file() -> None:
     result = run(layers.delete_layer("/tmp/ase-pytest/does-not-exist.aseprite", "body"))
     assert result == "File /tmp/ase-pytest/does-not-exist.aseprite not found"
 
 
-def test_rename_layer_missing_file():
+def test_rename_layer_missing_file() -> None:
     result = run(
         layers.rename_layer("/tmp/ase-pytest/does-not-exist.aseprite", "body", "x")
     )
     assert "not found" in result
 
 
-def test_duplicate_layer_missing_file():
+def test_duplicate_layer_missing_file() -> None:
     result = run(
         layers.duplicate_layer("/tmp/ase-pytest/does-not-exist.aseprite", "body")
     )
     assert "not found" in result
 
 
-def test_reorder_layer_missing_file():
+def test_reorder_layer_missing_file() -> None:
     result = run(
         layers.reorder_layer("/tmp/ase-pytest/does-not-exist.aseprite", "body", 1)
     )
     assert "not found" in result
 
 
-def test_set_layer_blend_mode_missing_file():
+def test_set_layer_blend_mode_missing_file() -> None:
     result = run(
         layers.set_layer_blend_mode(
             "/tmp/ase-pytest/does-not-exist.aseprite", "body", "normal"
@@ -81,14 +87,14 @@ def test_set_layer_blend_mode_missing_file():
     assert "not found" in result
 
 
-def test_merge_layer_down_missing_file():
+def test_merge_layer_down_missing_file() -> None:
     result = run(
         layers.merge_layer_down("/tmp/ase-pytest/does-not-exist.aseprite", "body")
     )
     assert "not found" in result
 
 
-def test_flatten_sprite_missing_file():
+def test_flatten_sprite_missing_file() -> None:
     result = run(layers.flatten_sprite("/tmp/ase-pytest/does-not-exist.aseprite"))
     assert "not found" in result
 
@@ -96,12 +102,12 @@ def test_flatten_sprite_missing_file():
 # ── validation branches ─────────────────────────────────────────────────
 
 
-def test_rename_layer_rejects_empty_new_name(sprite):
+def test_rename_layer_rejects_empty_new_name(sprite: str) -> None:
     result = run(layers.rename_layer(sprite, "body", ""))
     assert result == "New name cannot be empty"
 
 
-def test_reorder_layer_rejects_position_below_one(sprite):
+def test_reorder_layer_rejects_position_below_one(sprite: str) -> None:
     result = run(layers.reorder_layer(sprite, "body", 0))
     assert result == "Position must be >= 1"
 
@@ -115,20 +121,20 @@ def test_reorder_layer_rejects_position_below_one(sprite):
 # stack position.
 
 
-def _fresh_sprite():
+def _fresh_sprite() -> str:
     path = "/tmp/ase-pytest/layers-errors.aseprite"
     ok(run(canvas.create_canvas(16, 16, path)))
     ok(run(canvas.add_layer(path, "body")))
     return path
 
 
-def test_delete_layer_reports_layer_not_found():
+def test_delete_layer_reports_layer_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(layers.delete_layer(fresh, "no-such-layer"))
     assert result.startswith("Failed to delete layer:")
 
 
-def test_delete_layer_reports_cannot_delete_only_layer():
+def test_delete_layer_reports_cannot_delete_only_layer() -> None:
     solo_path = "/tmp/ase-pytest/layers-solo.aseprite"
     ok(run(canvas.create_canvas(8, 8, solo_path)))
     result = run(layers.delete_layer(solo_path, "Layer 1"))
@@ -136,19 +142,19 @@ def test_delete_layer_reports_cannot_delete_only_layer():
     assert "only layer" in result
 
 
-def test_rename_layer_reports_layer_not_found():
+def test_rename_layer_reports_layer_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(layers.rename_layer(fresh, "no-such-layer", "whatever"))
     assert result.startswith("Failed to rename layer:")
 
 
-def test_duplicate_layer_reports_layer_not_found():
+def test_duplicate_layer_reports_layer_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(layers.duplicate_layer(fresh, "no-such-layer"))
     assert result.startswith("Failed to duplicate layer:")
 
 
-def test_duplicate_layer_reports_group_not_found():
+def test_duplicate_layer_reports_group_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(
         layers.duplicate_layer(fresh, "body", "body copy 2", group="no-such-group")
@@ -156,7 +162,7 @@ def test_duplicate_layer_reports_group_not_found():
     assert result.startswith("Failed to duplicate layer:")
 
 
-def test_duplicate_layer_into_group():
+def test_duplicate_layer_into_group() -> None:
     fresh = _fresh_sprite()
     ok(run(canvas.add_group(fresh, "holder")))
     result = ok(
@@ -165,32 +171,32 @@ def test_duplicate_layer_into_group():
     assert "inside group 'holder'" in result
 
 
-def test_reorder_layer_reports_layer_not_found():
+def test_reorder_layer_reports_layer_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(layers.reorder_layer(fresh, "no-such-layer", 1))
     assert result.startswith("Failed to reorder layer:")
 
 
-def test_reorder_layer_reports_position_out_of_range():
+def test_reorder_layer_reports_position_out_of_range() -> None:
     fresh = _fresh_sprite()
     result = run(layers.reorder_layer(fresh, "body", 999))
     assert result.startswith("Failed to reorder layer:")
     assert "out of range" in result
 
 
-def test_set_layer_blend_mode_reports_layer_not_found():
+def test_set_layer_blend_mode_reports_layer_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(layers.set_layer_blend_mode(fresh, "no-such-layer", "normal"))
     assert result.startswith("Failed to set blend mode:")
 
 
-def test_merge_layer_down_reports_layer_not_found():
+def test_merge_layer_down_reports_layer_not_found() -> None:
     fresh = _fresh_sprite()
     result = run(layers.merge_layer_down(fresh, "no-such-layer"))
     assert result.startswith("Failed to merge layer down:")
 
 
-def test_merge_layer_down_reports_bottom_layer_guard():
+def test_merge_layer_down_reports_bottom_layer_guard() -> None:
     # A freshly created sprite's single default layer is always the bottom
     # (and only) layer, so merging it down must hit the guard.
     solo_path = "/tmp/ase-pytest/layers-solo2.aseprite"
@@ -200,7 +206,7 @@ def test_merge_layer_down_reports_bottom_layer_guard():
     assert "bottom layer" in result
 
 
-def test_flatten_sprite_reports_subprocess_failure(sprite):
+def test_flatten_sprite_reports_subprocess_failure(sprite: str) -> None:
     with patch(
         "aseprite_mcp.tools.layers.AsepriteCommand.execute_lua_script_checked"
     ) as m:

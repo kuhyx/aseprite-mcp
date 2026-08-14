@@ -21,74 +21,74 @@ from aseprite_mcp.tools.quality import _parse_layer_frame_ranges, _parse_overlap
 # ---------------------------------------------------------------------------
 
 
-def test_parse_layer_frame_ranges_none():
+def test_parse_layer_frame_ranges_none() -> None:
     assert _parse_layer_frame_ranges(None) == "{}"
 
 
-def test_parse_layer_frame_ranges_empty_list():
+def test_parse_layer_frame_ranges_empty_list() -> None:
     assert _parse_layer_frame_ranges([]) == "{}"
 
 
-def test_parse_layer_frame_ranges_single_range():
+def test_parse_layer_frame_ranges_single_range() -> None:
     result = _parse_layer_frame_ranges(["body:1-8"])
     assert result == '{["body"]={{1,8}},}'
 
 
-def test_parse_layer_frame_ranges_multiple_spans_same_layer():
+def test_parse_layer_frame_ranges_multiple_spans_same_layer() -> None:
     result = _parse_layer_frame_ranges(["body:1-8,17-24"])
     assert result == '{["body"]={{1,8},{17,24}},}'
 
 
-def test_parse_layer_frame_ranges_multiple_layers():
+def test_parse_layer_frame_ranges_multiple_layers() -> None:
     result = _parse_layer_frame_ranges(["body:1-8", "clouds:1-12"])
     assert '["body"]={{1,8}}' in result
     assert '["clouds"]={{1,12}}' in result
 
 
-def test_parse_layer_frame_ranges_skips_empty_entry():
+def test_parse_layer_frame_ranges_skips_empty_entry() -> None:
     # entries with no ":" are dropped entirely
     assert _parse_layer_frame_ranges(["", "no-colon-here"]) == "{}"
 
 
-def test_parse_layer_frame_ranges_skips_falsy_entry():
+def test_parse_layer_frame_ranges_skips_falsy_entry() -> None:
     # None-ish/empty-string entries in the list are skipped, not raised
     result = _parse_layer_frame_ranges(["", "body:1-8"])
     assert result == '{["body"]={{1,8}},}'
 
 
-def test_parse_layer_frame_ranges_blank_layer_name_skipped():
+def test_parse_layer_frame_ranges_blank_layer_name_skipped() -> None:
     # "  :1-8" -> layer strips to "" -> skipped
     assert _parse_layer_frame_ranges(["  :1-8"]) == "{}"
 
 
-def test_parse_layer_frame_ranges_malformed_span_non_numeric():
+def test_parse_layer_frame_ranges_malformed_span_non_numeric() -> None:
     # "a-b" fails int() -> ValueError -> span dropped; layer has no spans
     # so it is never added to the ranges dict at all.
     assert _parse_layer_frame_ranges(["body:a-b"]) == "{}"
 
 
-def test_parse_layer_frame_ranges_start_le_zero_dropped():
+def test_parse_layer_frame_ranges_start_le_zero_dropped() -> None:
     # start must be > 0
     assert _parse_layer_frame_ranges(["body:0-8"]) == "{}"
 
 
-def test_parse_layer_frame_ranges_end_less_than_start_dropped():
+def test_parse_layer_frame_ranges_end_less_than_start_dropped() -> None:
     # end must be >= start
     assert _parse_layer_frame_ranges(["body:8-1"]) == "{}"
 
 
-def test_parse_layer_frame_ranges_span_without_dash_ignored():
+def test_parse_layer_frame_ranges_span_without_dash_ignored() -> None:
     # no "-" in span -> span silently skipped (loop just doesn't append)
     assert _parse_layer_frame_ranges(["body:5"]) == "{}"
 
 
-def test_parse_layer_frame_ranges_mixed_valid_and_invalid_spans():
+def test_parse_layer_frame_ranges_mixed_valid_and_invalid_spans() -> None:
     # one bad span, one good span for the same layer -> only good one kept
     result = _parse_layer_frame_ranges(["body:0-8,10-20"])
     assert result == '{["body"]={{10,20}},}'
 
 
-def test_parse_layer_frame_ranges_whitespace_trimmed():
+def test_parse_layer_frame_ranges_whitespace_trimmed() -> None:
     result = _parse_layer_frame_ranges([" body : 1 - 8 "])
     assert result == '{["body"]={{1,8}},}'
 
@@ -98,48 +98,48 @@ def test_parse_layer_frame_ranges_whitespace_trimmed():
 # ---------------------------------------------------------------------------
 
 
-def test_parse_overlap_pairs_none():
+def test_parse_overlap_pairs_none() -> None:
     assert _parse_overlap_pairs(None) == "{}"
 
 
-def test_parse_overlap_pairs_empty_list():
+def test_parse_overlap_pairs_empty_list() -> None:
     assert _parse_overlap_pairs([]) == "{}"
 
 
-def test_parse_overlap_pairs_comma_separated():
+def test_parse_overlap_pairs_comma_separated() -> None:
     assert _parse_overlap_pairs(["body,clouds"]) == '{{"body","clouds"}}'
 
 
-def test_parse_overlap_pairs_colon_separated():
+def test_parse_overlap_pairs_colon_separated() -> None:
     assert _parse_overlap_pairs(["body:clouds"]) == '{{"body","clouds"}}'
 
 
-def test_parse_overlap_pairs_comma_takes_precedence_over_colon():
+def test_parse_overlap_pairs_comma_takes_precedence_over_colon() -> None:
     # entry contains both "," and ":"; comma branch wins per the if/elif order
     result = _parse_overlap_pairs(["a:b,c:d"])
     assert result == '{{"a:b","c:d"}}'
 
 
-def test_parse_overlap_pairs_multiple_entries():
+def test_parse_overlap_pairs_multiple_entries() -> None:
     result = _parse_overlap_pairs(["a,b", "c:d"])
     assert result == '{{"a","b"},{"c","d"}}'
 
 
-def test_parse_overlap_pairs_skips_empty_entry():
+def test_parse_overlap_pairs_skips_empty_entry() -> None:
     assert _parse_overlap_pairs(["", "a,b"]) == '{{"a","b"}}'
 
 
-def test_parse_overlap_pairs_skips_entry_without_separator():
+def test_parse_overlap_pairs_skips_entry_without_separator() -> None:
     assert _parse_overlap_pairs(["nosep"]) == "{}"
 
 
-def test_parse_overlap_pairs_skips_blank_sides():
+def test_parse_overlap_pairs_skips_blank_sides() -> None:
     # "a," -> left="a", right="" -> right falsy -> pair dropped
     assert _parse_overlap_pairs(["a,"]) == "{}"
     assert _parse_overlap_pairs([",b"]) == "{}"
 
 
-def test_parse_overlap_pairs_whitespace_trimmed():
+def test_parse_overlap_pairs_whitespace_trimmed() -> None:
     assert _parse_overlap_pairs([" a , b "]) == '{{"a","b"}}'
 
 
@@ -148,19 +148,19 @@ def test_parse_overlap_pairs_whitespace_trimmed():
 # ---------------------------------------------------------------------------
 
 
-def test_ensure_layers_present_missing_file():
+def test_ensure_layers_present_missing_file() -> None:
     result = run(
         quality.ensure_layers_present("/tmp/ase-pytest/NOPE.aseprite", ["body"])
     )
     assert "not found" in result
 
 
-def test_ensure_layers_present_empty_layer_list(sprite):
+def test_ensure_layers_present_empty_layer_list(sprite: str) -> None:
     result = run(quality.ensure_layers_present(sprite, []))
     assert result == "Layer names list cannot be empty"
 
 
-def test_ensure_layers_present_success(sprite):
+def test_ensure_layers_present_success(sprite: str) -> None:
     ok(run(animation.add_frames(sprite, 2, 100)))  # sprite now has 3 frames
     ok(run(canvas.add_layer(sprite, "ensure_target")))
     result = ok(run(quality.ensure_layers_present(sprite, ["ensure_target"], 1, 3)))
@@ -168,18 +168,18 @@ def test_ensure_layers_present_success(sprite):
     assert "1-3" in result
 
 
-def test_ensure_layers_present_default_end_frame(sprite):
+def test_ensure_layers_present_default_end_frame(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "ensure_target2")))
     result = ok(run(quality.ensure_layers_present(sprite, ["ensure_target2"])))
     assert "end" in result
 
 
-def test_ensure_layers_present_frame_range_out_of_bounds(sprite):
+def test_ensure_layers_present_frame_range_out_of_bounds(sprite: str) -> None:
     result = run(quality.ensure_layers_present(sprite, ["body"], 1, 9999))
     assert result.startswith("Failed")
 
 
-def test_ensure_layers_present_no_layers_found(sprite):
+def test_ensure_layers_present_no_layers_found(sprite: str) -> None:
     result = run(quality.ensure_layers_present(sprite, ["TOTALLY_MISSING_LAYER"]))
     assert result.startswith("Failed")
 
@@ -189,24 +189,24 @@ def test_ensure_layers_present_no_layers_found(sprite):
 # ---------------------------------------------------------------------------
 
 
-def test_validate_scene_missing_file():
+def test_validate_scene_missing_file() -> None:
     result = run(quality.validate_scene("/tmp/ase-pytest/NOPE.aseprite", ["body"]))
     assert "not found" in result
 
 
-def test_validate_scene_empty_required_layers(sprite):
+def test_validate_scene_empty_required_layers(sprite: str) -> None:
     result = run(quality.validate_scene(sprite, []))
     assert result == "Required layers list cannot be empty"
 
 
-def test_validate_scene_all_present(sprite):
+def test_validate_scene_all_present(sprite: str) -> None:
     result = ok(run(quality.validate_scene(sprite, ["body"], 1, 1)))
     data = json.loads(result)
     assert data["missing_layers"] == []
     assert data["missing_cels"] == []
 
 
-def test_validate_scene_missing_layer_and_cel(sprite):
+def test_validate_scene_missing_layer_and_cel(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "validate_empty_layer")))
     result = ok(
         run(
@@ -222,13 +222,13 @@ def test_validate_scene_missing_layer_and_cel(sprite):
     )
 
 
-def test_validate_scene_default_end_frame(sprite):
+def test_validate_scene_default_end_frame(sprite: str) -> None:
     result = ok(run(quality.validate_scene(sprite, ["body"])))
     data = json.loads(result)
     assert data["frames"] >= 1
 
 
-def test_validate_scene_frame_range_out_of_bounds(sprite):
+def test_validate_scene_frame_range_out_of_bounds(sprite: str) -> None:
     result = run(quality.validate_scene(sprite, ["body"], 1, 9999))
     assert result.startswith("Failed")
 
@@ -238,39 +238,39 @@ def test_validate_scene_frame_range_out_of_bounds(sprite):
 # ---------------------------------------------------------------------------
 
 
-def test_audit_animation_missing_file():
+def test_audit_animation_missing_file() -> None:
     result = run(quality.audit_animation("/tmp/ase-pytest/NOPE.aseprite"))
     assert "not found" in result
 
 
-def test_audit_animation_start_frame_invalid(sprite):
+def test_audit_animation_start_frame_invalid(sprite: str) -> None:
     result = run(quality.audit_animation(sprite, start_frame=0))
     assert result == "Start frame must be >= 1"
 
 
-def test_audit_animation_end_before_start(sprite):
+def test_audit_animation_end_before_start(sprite: str) -> None:
     result = run(quality.audit_animation(sprite, start_frame=5, end_frame=2))
     assert result == "End frame must be >= start frame"
 
 
-def test_audit_animation_negative_max_overlaps(sprite):
+def test_audit_animation_negative_max_overlaps(sprite: str) -> None:
     result = run(quality.audit_animation(sprite, max_overlaps=-1))
     assert result == "Max limits must be >= 0"
 
 
-def test_audit_animation_negative_max_out_of_range(sprite):
+def test_audit_animation_negative_max_out_of_range(sprite: str) -> None:
     result = run(quality.audit_animation(sprite, max_out_of_range=-1))
     assert result == "Max limits must be >= 0"
 
 
-def test_audit_animation_default_layers_all_non_group(sprite):
+def test_audit_animation_default_layers_all_non_group(sprite: str) -> None:
     result = ok(run(quality.audit_animation(sprite, start_frame=1, end_frame=1)))
     data = json.loads(result)
     assert data["summary"]["total_layers"] >= 1
     assert data["summary"]["layers_checked"] >= 1
 
 
-def test_audit_animation_explicit_layer_names(sprite):
+def test_audit_animation_explicit_layer_names(sprite: str) -> None:
     result = ok(
         run(
             quality.audit_animation(
@@ -282,7 +282,7 @@ def test_audit_animation_explicit_layer_names(sprite):
     assert data["summary"]["layers_checked"] == 1
 
 
-def test_audit_animation_report_cels_no_bounds(sprite):
+def test_audit_animation_report_cels_no_bounds(sprite: str) -> None:
     result = ok(
         run(
             quality.audit_animation(
@@ -301,7 +301,7 @@ def test_audit_animation_report_cels_no_bounds(sprite):
     assert "w" not in frame1["cels"][0]
 
 
-def test_audit_animation_report_cels_with_bounds(sprite):
+def test_audit_animation_report_cels_with_bounds(sprite: str) -> None:
     result = ok(
         run(
             quality.audit_animation(
@@ -317,23 +317,26 @@ def test_audit_animation_report_cels_with_bounds(sprite):
     data = json.loads(result)
     cel = data["cels"][0]["cels"][0]
     assert cel["layer"] == "body"
-    assert "w" in cel and "h" in cel and "x" in cel and "y" in cel
+    assert "w" in cel
+    assert "h" in cel
+    assert "x" in cel
+    assert "y" in cel
 
 
-def test_audit_animation_overlap_detection(sprite):
+def test_audit_animation_overlap_detection(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "overlap_a")))
     ok(run(canvas.add_layer(sprite, "overlap_b")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "overlap_a", 1, 0, 0, 10, 10, "#ff0000", True
+                sprite, "overlap_a", 1, 0, 0, 10, 10, "#ff0000", fill=True
             )
         )
     )
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "overlap_b", 1, 5, 5, 10, 10, "#00ff00", True
+                sprite, "overlap_b", 1, 5, 5, 10, 10, "#00ff00", fill=True
             )
         )
     )
@@ -354,7 +357,7 @@ def test_audit_animation_overlap_detection(sprite):
     assert data["overlaps"][0]["b"] == "overlap_b"
 
 
-def test_audit_animation_overlap_with_bounds(sprite):
+def test_audit_animation_overlap_with_bounds(sprite: str) -> None:
     result = ok(
         run(
             quality.audit_animation(
@@ -369,10 +372,11 @@ def test_audit_animation_overlap_with_bounds(sprite):
     )
     data = json.loads(result)
     entry = data["overlaps"][0]
-    assert "a_bounds" in entry and "b_bounds" in entry
+    assert "a_bounds" in entry
+    assert "b_bounds" in entry
 
 
-def test_audit_animation_overlap_truncation(sprite):
+def test_audit_animation_overlap_truncation(sprite: str) -> None:
     # max_overlaps=0 with a real overlap -> overlaps list stays empty but
     # overlaps_truncated flips true and overlaps_total still counts it.
     result = ok(
@@ -394,7 +398,7 @@ def test_audit_animation_overlap_truncation(sprite):
     assert data["overlaps"] == []
 
 
-def test_audit_animation_out_of_range_detection(sprite):
+def test_audit_animation_out_of_range_detection(sprite: str) -> None:
     ok(run(animation.add_frames(sprite, 2, 100)))  # total frames should now be >=3
     info = json.loads(run(animation.get_sprite_info(sprite)))
     total_frames = info["frames"]
@@ -403,7 +407,7 @@ def test_audit_animation_out_of_range_detection(sprite):
         ok(
             run(
                 drawing.draw_rectangle_at(
-                    sprite, "range_layer", fi, 0, 0, 4, 4, "#0000ff", True
+                    sprite, "range_layer", fi, 0, 0, 4, 4, "#0000ff", fill=True
                 )
             )
         )
@@ -423,7 +427,7 @@ def test_audit_animation_out_of_range_detection(sprite):
     assert all(e["layer"] == "range_layer" for e in data["out_of_range"])
 
 
-def test_audit_animation_out_of_range_truncation(sprite):
+def test_audit_animation_out_of_range_truncation(sprite: str) -> None:
     info = json.loads(run(animation.get_sprite_info(sprite)))
     total_frames = info["frames"]
     result = ok(
@@ -442,7 +446,7 @@ def test_audit_animation_out_of_range_truncation(sprite):
     assert len(data["out_of_range"]) == 1
 
 
-def test_audit_animation_frame_range_out_of_bounds(sprite):
+def test_audit_animation_frame_range_out_of_bounds(sprite: str) -> None:
     result = run(quality.audit_animation(sprite, start_frame=1, end_frame=99999))
     assert result.startswith("Failed")
 
@@ -452,47 +456,47 @@ def test_audit_animation_frame_range_out_of_bounds(sprite):
 # ---------------------------------------------------------------------------
 
 
-def test_animation_sanitize_missing_file():
+def test_animation_sanitize_missing_file() -> None:
     result = run(quality.animation_sanitize("/tmp/ase-pytest/NOPE.aseprite"))
     assert "not found" in result
 
 
-def test_animation_sanitize_start_frame_invalid(sprite):
+def test_animation_sanitize_start_frame_invalid(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, start_frame=0))
     assert result == "Start frame must be >= 1"
 
 
-def test_animation_sanitize_end_before_start(sprite):
+def test_animation_sanitize_end_before_start(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, start_frame=5, end_frame=2))
     assert result == "End frame must be >= start frame"
 
 
-def test_animation_sanitize_negative_max_overlaps(sprite):
+def test_animation_sanitize_negative_max_overlaps(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, max_overlaps=-1))
     assert result == "max_overlaps must be >= 0"
 
 
-def test_animation_sanitize_bad_out_of_range_action(sprite):
+def test_animation_sanitize_bad_out_of_range_action(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, out_of_range_action="explode"))
     assert result == "Unsupported out_of_range_action"
 
 
-def test_animation_sanitize_opacity_out_of_bounds_low(sprite):
+def test_animation_sanitize_opacity_out_of_bounds_low(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, out_of_range_opacity=-1))
     assert result == "out_of_range_opacity must be 0-255"
 
 
-def test_animation_sanitize_opacity_out_of_bounds_high(sprite):
+def test_animation_sanitize_opacity_out_of_bounds_high(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, out_of_range_opacity=256))
     assert result == "out_of_range_opacity must be 0-255"
 
 
-def test_animation_sanitize_frame_range_out_of_bounds(sprite):
+def test_animation_sanitize_frame_range_out_of_bounds(sprite: str) -> None:
     result = run(quality.animation_sanitize(sprite, start_frame=1, end_frame=99999))
     assert result.startswith("Failed")
 
 
-def test_animation_sanitize_report_only_basic(sprite):
+def test_animation_sanitize_report_only_basic(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -510,7 +514,7 @@ def test_animation_sanitize_report_only_basic(sprite):
     assert "layer_stats" in data  # include_stats defaults True
 
 
-def test_animation_sanitize_no_stats(sprite):
+def test_animation_sanitize_no_stats(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -527,7 +531,7 @@ def test_animation_sanitize_no_stats(sprite):
     assert "layer_stats" not in data
 
 
-def test_animation_sanitize_ensure_layers_apply(sprite):
+def test_animation_sanitize_ensure_layers_apply(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_ensure_target")))
     info = json.loads(run(animation.get_sprite_info(sprite)))
     total_frames = info["frames"]
@@ -561,7 +565,9 @@ def test_animation_sanitize_ensure_layers_apply(sprite):
     assert data2["ensured"] == 0
 
 
-def test_animation_sanitize_ensure_layers_report_only_does_not_apply(sprite):
+def test_animation_sanitize_ensure_layers_report_only_does_not_apply(
+    sprite: str,
+) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_ensure_reportonly")))
     result = ok(
         run(
@@ -588,12 +594,12 @@ def test_animation_sanitize_ensure_layers_report_only_does_not_apply(sprite):
     )
 
 
-def test_animation_sanitize_out_of_range_set_opacity_zero(sprite):
+def test_animation_sanitize_out_of_range_set_opacity_zero(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_range_opacity")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "sanitize_range_opacity", 1, 0, 0, 4, 4, "#123456", True
+                sprite, "sanitize_range_opacity", 1, 0, 0, 4, 4, "#123456", fill=True
             )
         )
     )
@@ -617,12 +623,12 @@ def test_animation_sanitize_out_of_range_set_opacity_zero(sprite):
     assert "cels_out_of_range" in data["alerts"]
 
 
-def test_animation_sanitize_out_of_range_delete_cels(sprite):
+def test_animation_sanitize_out_of_range_delete_cels(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_range_delete")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "sanitize_range_delete", 1, 0, 0, 4, 4, "#123456", True
+                sprite, "sanitize_range_delete", 1, 0, 0, 4, 4, "#123456", fill=True
             )
         )
     )
@@ -648,12 +654,12 @@ def test_animation_sanitize_out_of_range_delete_cels(sprite):
     assert any(e["layer"] == "sanitize_range_delete" for e in vdata["missing_cels"])
 
 
-def test_animation_sanitize_out_of_range_action_none(sprite):
+def test_animation_sanitize_out_of_range_action_none(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_range_none")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "sanitize_range_none", 1, 0, 0, 4, 4, "#123456", True
+                sprite, "sanitize_range_none", 1, 0, 0, 4, 4, "#123456", fill=True
             )
         )
     )
@@ -680,12 +686,12 @@ def test_animation_sanitize_out_of_range_action_none(sprite):
     assert not any(e["layer"] == "sanitize_range_none" for e in vdata["missing_cels"])
 
 
-def test_animation_sanitize_empty_frames_alert(sprite):
+def test_animation_sanitize_empty_frames_alert(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_lonely")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "sanitize_lonely", 1, 0, 0, 4, 4, "#123456", True
+                sprite, "sanitize_lonely", 1, 0, 0, 4, 4, "#123456", fill=True
             )
         )
     )
@@ -705,12 +711,12 @@ def test_animation_sanitize_empty_frames_alert(sprite):
     assert "empty_frames_detected" in data["alerts"]
 
 
-def test_animation_sanitize_full_canvas_alert(sprite):
+def test_animation_sanitize_full_canvas_alert(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_full_canvas")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "sanitize_full_canvas", 1, 0, 0, 32, 32, "#123456", True
+                sprite, "sanitize_full_canvas", 1, 0, 0, 32, 32, "#123456", fill=True
             )
         )
     )
@@ -732,7 +738,7 @@ def test_animation_sanitize_full_canvas_alert(sprite):
     assert stats["bounds"] == [0, 0, 32, 32]
 
 
-def test_animation_sanitize_inactive_layer(sprite):
+def test_animation_sanitize_inactive_layer(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "sanitize_inactive")))
     result = ok(
         run(
@@ -752,20 +758,20 @@ def test_animation_sanitize_inactive_layer(sprite):
     assert stats["cel_count"] == 0
 
 
-def test_animation_sanitize_overlap_pairs_ignore_full_canvas(sprite):
+def test_animation_sanitize_overlap_pairs_ignore_full_canvas(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "ov_full")))
     ok(run(canvas.add_layer(sprite, "ov_small")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "ov_full", 1, 0, 0, 32, 32, "#111111", True
+                sprite, "ov_full", 1, 0, 0, 32, 32, "#111111", fill=True
             )
         )
     )
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "ov_small", 1, 0, 0, 4, 4, "#222222", True
+                sprite, "ov_small", 1, 0, 0, 4, 4, "#222222", fill=True
             )
         )
     )
@@ -787,7 +793,7 @@ def test_animation_sanitize_overlap_pairs_ignore_full_canvas(sprite):
     assert data.get("overlap_samples", []) == []
 
 
-def test_animation_sanitize_overlap_pairs_not_ignored(sprite):
+def test_animation_sanitize_overlap_pairs_not_ignored(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -807,7 +813,7 @@ def test_animation_sanitize_overlap_pairs_not_ignored(sprite):
     assert data["overlap_samples"][0]["b"] == "ov_small"
 
 
-def test_animation_sanitize_overlap_pairs_with_bounds(sprite):
+def test_animation_sanitize_overlap_pairs_with_bounds(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -824,10 +830,11 @@ def test_animation_sanitize_overlap_pairs_with_bounds(sprite):
     )
     data = json.loads(result)
     entry = data["overlap_samples"][0]
-    assert "a_bounds" in entry and "b_bounds" in entry
+    assert "a_bounds" in entry
+    assert "b_bounds" in entry
 
 
-def test_animation_sanitize_overlap_truncation(sprite):
+def test_animation_sanitize_overlap_truncation(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -847,7 +854,7 @@ def test_animation_sanitize_overlap_truncation(sprite):
     assert data.get("overlap_samples", []) == []
 
 
-def test_animation_sanitize_reorder_applies_without_groups(sprite):
+def test_animation_sanitize_reorder_applies_without_groups(sprite: str) -> None:
     ok(run(canvas.add_layer(sprite, "reorder_a")))
     ok(run(canvas.add_layer(sprite, "reorder_b")))
     result = ok(
@@ -865,7 +872,7 @@ def test_animation_sanitize_reorder_applies_without_groups(sprite):
     assert data["reordered"] is True
 
 
-def test_animation_sanitize_reorder_report_only_not_applied(sprite):
+def test_animation_sanitize_reorder_report_only_not_applied(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -885,7 +892,7 @@ def test_animation_sanitize_reorder_report_only_not_applied(sprite):
     assert data["reordered"] is True
 
 
-def test_animation_sanitize_reorder_skipped_with_groups(sprite):
+def test_animation_sanitize_reorder_skipped_with_groups(sprite: str) -> None:
     ok(run(canvas.add_group(sprite, "sanitize_group")))
     ok(run(canvas.add_layer(sprite, "reorder_c", group="sanitize_group")))
     result = ok(
@@ -905,7 +912,7 @@ def test_animation_sanitize_reorder_skipped_with_groups(sprite):
     assert data["reordered"] is False
 
 
-def test_animation_sanitize_no_layer_order_reordered_false(sprite):
+def test_animation_sanitize_no_layer_order_reordered_false(sprite: str) -> None:
     result = ok(
         run(
             quality.animation_sanitize(
@@ -917,7 +924,7 @@ def test_animation_sanitize_no_layer_order_reordered_false(sprite):
     assert data["reordered"] is False
 
 
-def test_animation_sanitize_default_all_non_group_layers(sprite):
+def test_animation_sanitize_default_all_non_group_layers(sprite: str) -> None:
     result = ok(run(quality.animation_sanitize(sprite, start_frame=1, end_frame=1)))
     data = json.loads(result)
     assert data["analysis"]["layers_checked"] >= 1

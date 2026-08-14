@@ -5,23 +5,29 @@ from conftest import ok, run
 from aseprite_mcp.tools import drawing, fx, pixel_read
 
 
-def test_outline_cel(sprite):
-    ok(run(fx.outline_cel(sprite, "body", 1, "#140C1C", False)))
+def test_outline_cel(sprite: str) -> None:
+    ok(run(fx.outline_cel(sprite, "body", 1, "#140C1C", include_diagonals=False)))
 
 
-def test_replace_color_changes_pixels(sprite):
-    ok(run(drawing.draw_rectangle_at(sprite, "body", 1, 10, 10, 4, 4, "#D04648", True)))
+def test_replace_color_changes_pixels(sprite: str) -> None:
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                sprite, "body", 1, 10, 10, 4, 4, "#D04648", fill=True
+            )
+        )
+    )
     result = ok(run(fx.replace_color(sprite, "body", 1, "#D04648", "#597DCE", 0)))
     assert "Replaced" in result
     px = ok(run(pixel_read.get_pixel_color(sprite, 11, 11, "body", 1)))
     assert "#597dce" in px
 
 
-def test_adjust_hsl(sprite):
+def test_adjust_hsl(sprite: str) -> None:
     ok(run(fx.adjust_hsl(sprite, "body", 1, 30, 10, -5)))
 
 
-def test_apply_dither_gradient(sprite):
+def test_apply_dither_gradient(sprite: str) -> None:
     ok(
         run(
             fx.apply_dither_gradient(
@@ -31,7 +37,7 @@ def test_apply_dither_gradient(sprite):
     )
 
 
-def test_apply_dither_pattern(sprite):
+def test_apply_dither_pattern(sprite: str) -> None:
     ok(
         run(
             fx.apply_dither_pattern(

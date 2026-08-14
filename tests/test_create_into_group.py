@@ -14,7 +14,7 @@ from conftest import BASE, ok, run
 from aseprite_mcp.tools import animation, canvas, drawing, layers
 
 
-def _top_level(path):
+def _top_level(path: str) -> dict[str, bool]:
     """Map of top-level layer name -> is_group.
 
     get_sprite_info now enumerates nested layers too (each with a "parent"),
@@ -29,18 +29,18 @@ def _top_level(path):
 
 
 @pytest.fixture
-def fresh(base_dir, request):
+def fresh(request: pytest.FixtureRequest) -> str:
     path = f"{BASE}/cig_{request.node.name}.aseprite"
     ok(run(canvas.create_canvas(16, 16, path)))
     return path
 
 
-def test_add_group_top_level(fresh):
+def test_add_group_top_level(fresh: str) -> None:
     ok(run(canvas.add_group(fresh, "GRP")))
     assert _top_level(fresh).get("GRP") is True
 
 
-def test_add_layer_into_group(fresh):
+def test_add_layer_into_group(fresh: str) -> None:
     ok(run(canvas.add_group(fresh, "GRP")))
     ok(run(canvas.add_layer(fresh, "child", "GRP")))
     assert "child" not in _top_level(fresh), "child must be inside GRP, not top level"
@@ -48,14 +48,14 @@ def test_add_layer_into_group(fresh):
     ok(
         run(
             drawing.draw_rectangle_at(
-                fresh, "GRP/child", 1, 0, 0, 4, 4, "#ffffff", True
+                fresh, "GRP/child", 1, 0, 0, 4, 4, "#ffffff", fill=True
             )
         )
     )
     ok(run(layers.rename_layer(fresh, "child", "child_renamed")))
 
 
-def test_add_group_nested_then_layer_two_deep(fresh):
+def test_add_group_nested_then_layer_two_deep(fresh: str) -> None:
     ok(run(canvas.add_group(fresh, "GRP")))
     ok(run(canvas.add_group(fresh, "SUB", "GRP")))
     assert "SUB" not in _top_level(fresh), "SUB must be inside GRP"
@@ -63,33 +63,39 @@ def test_add_group_nested_then_layer_two_deep(fresh):
     ok(
         run(
             drawing.draw_rectangle_at(
-                fresh, "GRP/SUB/deep", 1, 0, 0, 2, 2, "#ffffff", True
+                fresh, "GRP/SUB/deep", 1, 0, 0, 2, 2, "#ffffff", fill=True
             )
         )
     )
 
 
-def test_duplicate_into_group(fresh):
+def test_duplicate_into_group(fresh: str) -> None:
     ok(run(canvas.add_layer(fresh, "body")))
-    ok(run(drawing.draw_rectangle_at(fresh, "body", 1, 0, 0, 8, 8, "#D04648", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                fresh, "body", 1, 0, 0, 8, 8, "#D04648", fill=True
+            )
+        )
+    )
     ok(run(canvas.add_group(fresh, "GRP")))
     ok(run(layers.duplicate_layer(fresh, "body", "body_copy", "GRP")))
     assert "body_copy" not in _top_level(fresh), "copy must be inside GRP"
     ok(
         run(
             drawing.draw_rectangle_at(
-                fresh, "GRP/body_copy", 1, 0, 0, 2, 2, "#ffffff", True
+                fresh, "GRP/body_copy", 1, 0, 0, 2, 2, "#ffffff", fill=True
             )
         )
     )
 
 
-def test_add_layer_unknown_group_fails(fresh):
+def test_add_layer_unknown_group_fails(fresh: str) -> None:
     result = run(canvas.add_layer(fresh, "child", "NOPE"))
     assert str(result).startswith(("Failed", "ERROR")), result
 
 
-def test_add_layer_target_not_a_group_fails(fresh):
+def test_add_layer_target_not_a_group_fails(fresh: str) -> None:
     ok(run(canvas.add_layer(fresh, "plain")))  # a normal layer, not a group
     result = run(canvas.add_layer(fresh, "child", "plain"))
     assert str(result).startswith(("Failed", "ERROR")), result

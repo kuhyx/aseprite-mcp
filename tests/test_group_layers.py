@@ -24,8 +24,8 @@ from aseprite_mcp.tools import (
 
 
 @pytest.fixture(scope="module")
-def nested(base_dir):
-    """A sprite with GRP{inside}, top-level outer, and a 'dupe' in both places."""
+def nested() -> str:
+    """Build a sprite with GRP{inside}, top-level outer, and a 'dupe' in both places."""
     path = f"{BASE}/group_layers.aseprite"
     ok(run(canvas.create_canvas(16, 16, path)))
     setup = """
@@ -43,58 +43,70 @@ def nested(base_dir):
     return path
 
 
-def test_draw_reaches_nested_by_name(nested):
-    ok(run(drawing.draw_rectangle_at(nested, "inside", 1, 0, 0, 4, 4, "#ffffff", True)))
-
-
-def test_draw_reaches_nested_by_path(nested):
+def test_draw_reaches_nested_by_name(nested: str) -> None:
     ok(
         run(
             drawing.draw_rectangle_at(
-                nested, "GRP/inside", 1, 2, 2, 4, 4, "#00ff00", True
+                nested, "inside", 1, 0, 0, 4, 4, "#ffffff", fill=True
             )
         )
     )
 
 
-def test_visibility_reaches_nested(nested):  # animation.py converted loop
-    ok(run(animation.set_layer_visibility(nested, "inside", False)))
+def test_draw_reaches_nested_by_path(nested: str) -> None:
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                nested, "GRP/inside", 1, 2, 2, 4, 4, "#00ff00", fill=True
+            )
+        )
+    )
 
 
-def test_rename_reaches_nested(nested):  # layers.py via the shared helper
+def test_visibility_reaches_nested(nested: str) -> None:  # animation.py converted loop
+    ok(run(animation.set_layer_visibility(nested, "inside", visible=False)))
+
+
+def test_rename_reaches_nested(nested: str) -> None:  # layers.py via the shared helper
     ok(run(layers.rename_layer(nested, "outer", "outer_renamed")))
 
 
-def test_flip_reaches_nested(nested):  # transform.py converted loop
+def test_flip_reaches_nested(nested: str) -> None:  # transform.py converted loop
     ok(run(transform.flip_layer(nested, "inside", 1, "horizontal")))
 
 
-def test_pixel_read_reaches_nested(nested):  # pixel_read.py converted loop
+def test_pixel_read_reaches_nested(nested: str) -> None:  # pixel_read.py converted loop
     result = run(pixel_read.get_pixel_color(nested, 0, 0, "inside"))
     assert not str(result).startswith(("Failed", "ERROR")), result
 
 
-def test_ambiguous_bare_name_prefers_shallow(nested):
+def test_ambiguous_bare_name_prefers_shallow(nested: str) -> None:
     # 'dupe' exists top-level and inside GRP; the bare name must resolve to the
     # shallower one, while the path targets the nested namesake.
-    ok(run(drawing.draw_rectangle_at(nested, "dupe", 1, 0, 0, 2, 2, "#ff0000", True)))
     ok(
         run(
             drawing.draw_rectangle_at(
-                nested, "GRP/dupe", 1, 0, 0, 2, 2, "#0000ff", True
+                nested, "dupe", 1, 0, 0, 2, 2, "#ff0000", fill=True
+            )
+        )
+    )
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                nested, "GRP/dupe", 1, 0, 0, 2, 2, "#0000ff", fill=True
             )
         )
     )
 
 
-def test_bogus_name_still_fails(nested):
+def test_bogus_name_still_fails(nested: str) -> None:
     result = run(
-        drawing.draw_rectangle_at(nested, "NOPE", 1, 0, 0, 2, 2, "#ffffff", True)
+        drawing.draw_rectangle_at(nested, "NOPE", 1, 0, 0, 2, 2, "#ffffff", fill=True)
     )
     assert str(result).startswith(("Failed", "ERROR")), result
 
 
-def test_duplicate_name_across_group_allowed(nested):
+def test_duplicate_name_across_group_allowed(nested: str) -> None:
     # 'inside' exists only inside GRP, so creating a top-level layer with that
     # name must be allowed — the duplicate guard is top-level only.
     result = run(tilemap.create_tilemap_layer(nested, "inside", 8, 8))
@@ -102,11 +114,14 @@ def test_duplicate_name_across_group_allowed(nested):
 
 
 @pytest.fixture(scope="module")
-def slashed(base_dir):
-    """Aseprite permits "/" inside a name. Build a group literally named
-    'abc/x' holding child 'y', plus a genuine 'abc' -> 'x' -> 'z' hierarchy
-    that shares the leading token, so path navigation must coexist with
-    "/"-in-name and backtrack when the longest prefix dead-ends."""
+def slashed() -> str:
+    """Build a group literally named 'abc/x' holding child 'y'.
+
+    Aseprite permits "/" inside a name. Also builds a genuine
+    'abc' -> 'x' -> 'z' hierarchy that shares the leading token, so path
+    navigation must coexist with "/"-in-name and backtrack when the
+    longest prefix dead-ends.
+    """
     path = f"{BASE}/slashed_groups.aseprite"
     ok(run(canvas.create_canvas(16, 16, path)))
     setup = """
@@ -125,26 +140,26 @@ def slashed(base_dir):
     return path
 
 
-def test_child_under_slash_named_group(slashed):
+def test_child_under_slash_named_group(slashed: str) -> None:
     # The group is literally named "abc/x"; its child "y" must resolve as
     # "abc/x/y" — the longest leading group name wins.
     ok(
         run(
             drawing.draw_rectangle_at(
-                slashed, "abc/x/y", 1, 0, 0, 4, 4, "#ffffff", True
+                slashed, "abc/x/y", 1, 0, 0, 4, 4, "#ffffff", fill=True
             )
         )
     )
 
 
-def test_real_path_backtracks_past_slash_name(slashed):
+def test_real_path_backtracks_past_slash_name(slashed: str) -> None:
     # "abc/x/z" must still reach the genuine abc -> x -> z layer: the longest
     # prefix "abc/x" matches the sibling group but has no child "z", so the
     # walk backtracks to "abc" -> "x" -> "z".
     ok(
         run(
             drawing.draw_rectangle_at(
-                slashed, "abc/x/z", 1, 0, 0, 4, 4, "#00ff00", True
+                slashed, "abc/x/z", 1, 0, 0, 4, 4, "#00ff00", fill=True
             )
         )
     )

@@ -25,8 +25,8 @@ CELL_W, CELL_H, ASCENT = 4, 6, 5
 
 
 @pytest.fixture(scope="module")
-def bitmap_font(tmp_path_factory):
-    """A minimal bitmap font directory, returned as a path for `font=`."""
+def bitmap_font(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Build a minimal bitmap font directory, returned as a path for `font=`."""
     directory = tmp_path_factory.mktemp("fixture-font")
     chars = "ABO"
     sheet = Image.new("RGBA", (CELL_W * len(chars), CELL_H), (0, 0, 0, 0))
@@ -58,7 +58,7 @@ def bitmap_font(tmp_path_factory):
     return str(directory)
 
 
-def _system_truetype():
+def _system_truetype() -> str | None:
     for entry in fontlib.available_fonts():
         if entry["kind"] == "truetype":
             return entry["path"]
@@ -68,24 +68,24 @@ def _system_truetype():
 # ── discovery / errors ────────────────────────────────────────────────
 
 
-def test_unknown_font_is_reported():
+def test_unknown_font_is_reported() -> None:
     out = run(text.measure_text("ABC", "definitely-not-a-font"))
     assert out.startswith("ERROR")
     assert "not found" in out
 
 
-def test_list_fonts_never_raises():
+def test_list_fonts_never_raises() -> None:
     out = run(text.list_text_fonts())
     assert not out.startswith("ERROR")
 
 
-def test_bitmap_font_rejects_zero_size(bitmap_font):
+def test_bitmap_font_rejects_zero_size(bitmap_font: str) -> None:
     out = run(text.measure_text("A", bitmap_font, 0))
     assert out.startswith("ERROR")
     assert "scale factor" in out
 
 
-def test_rejects_bad_anchor(sprite, bitmap_font):
+def test_rejects_bad_anchor(sprite: str, bitmap_font: str) -> None:
     out = run(text.draw_text(sprite, "A", 0, 0, bitmap_font, anchor="middle"))
     assert "Invalid anchor" in out
 
@@ -93,7 +93,7 @@ def test_rejects_bad_anchor(sprite, bitmap_font):
 # ── measurement ───────────────────────────────────────────────────────
 
 
-def test_measure_matches_the_fixture_geometry(bitmap_font):
+def test_measure_matches_the_fixture_geometry(bitmap_font: str) -> None:
     out = run(text.measure_text("A", bitmap_font, 1))
     # 4px of ink, +1 letter_gap of advance; 5 inked rows, all above the baseline.
     assert "width=4" in out
@@ -102,22 +102,24 @@ def test_measure_matches_the_fixture_geometry(bitmap_font):
     assert "above_baseline=5" in out
 
 
-def test_measure_scales_with_size(bitmap_font):
+def test_measure_scales_with_size(bitmap_font: str) -> None:
     one = run(text.measure_text("AB", bitmap_font, 1))
     two = run(text.measure_text("AB", bitmap_font, 2))
-    assert "height=5" in one and "height=10" in two
+    assert "height=5" in one
+    assert "height=10" in two
     # advance per glyph is 4px of ink + 1px letter_gap.
-    assert "advance_width=10" in one and "advance_width=20" in two
+    assert "advance_width=10" in one
+    assert "advance_width=20" in two
 
 
-def test_letter_spacing_widens_the_advance(bitmap_font):
+def test_letter_spacing_widens_the_advance(bitmap_font: str) -> None:
     tight = run(text.measure_text("AB", bitmap_font, 1, letter_spacing=0))
     loose = run(text.measure_text("AB", bitmap_font, 1, letter_spacing=3))
     assert "advance_width=10" in tight
     assert "advance_width=13" in loose
 
 
-def test_bold_thickens_the_ink(bitmap_font):
+def test_bold_thickens_the_ink(bitmap_font: str) -> None:
     font = fontlib.load_font(bitmap_font)
     plain, _ = fontlib.shape("O", font, 2)
     bold, _ = fontlib.shape("O", font, 2, bold=1)
@@ -125,21 +127,21 @@ def test_bold_thickens_the_ink(bitmap_font):
     assert plain <= bold, "bold must be a superset, not a reflow"
 
 
-def test_glyphs_share_a_baseline(bitmap_font):
+def test_glyphs_share_a_baseline(bitmap_font: str) -> None:
     """Every glyph must sit on one baseline or a word visibly steps."""
     font = fontlib.load_font(bitmap_font)
     bottoms = {fontlib.shape(ch, font, 2)[1]["bottom"] for ch in "ABO"}
     assert len(bottoms) == 1, f"glyphs disagree on the baseline: {bottoms}"
 
 
-def test_unmapped_characters_are_skipped(bitmap_font):
+def test_unmapped_characters_are_skipped(bitmap_font: str) -> None:
     """An unknown codepoint contributes nothing rather than raising."""
     assert run(text.measure_text("A?", bitmap_font, 1)) == run(
         text.measure_text("A", bitmap_font, 1)
     )
 
 
-def test_overrides_replace_a_sheet_glyph(tmp_path, bitmap_font):
+def test_overrides_replace_a_sheet_glyph(tmp_path: Path, bitmap_font: str) -> None:
     """font.json overrides let a caller repair a glyph the sheet gets wrong."""
     spec = json.loads(Path(bitmap_font, "font.json").read_text())
     spec["overrides"] = {str(ord("A")): {"ascent": ASCENT, "rows": ["####"] * 5}}
@@ -157,7 +159,7 @@ def test_overrides_replace_a_sheet_glyph(tmp_path, bitmap_font):
 # ── drawing ───────────────────────────────────────────────────────────
 
 
-def test_draw_text_puts_ink_on_the_canvas(sprite, bitmap_font):
+def test_draw_text_puts_ink_on_the_canvas(sprite: str, bitmap_font: str) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -178,7 +180,9 @@ def test_draw_text_puts_ink_on_the_canvas(sprite, bitmap_font):
     assert "#ff0000" in px.lower()
 
 
-def test_topleft_anchor_places_the_box_at_the_point(sprite, bitmap_font):
+def test_topleft_anchor_places_the_box_at_the_point(
+    sprite: str, bitmap_font: str
+) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -196,7 +200,7 @@ def test_topleft_anchor_places_the_box_at_the_point(sprite, bitmap_font):
     assert "at (10, 10)" in out
 
 
-def test_center_anchor_is_offset_by_half_the_box(sprite, bitmap_font):
+def test_center_anchor_is_offset_by_half_the_box(sprite: str, bitmap_font: str) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -216,7 +220,7 @@ def test_center_anchor_is_offset_by_half_the_box(sprite, bitmap_font):
     assert "at (18, 18)" in out
 
 
-def test_outline_grows_the_stamp_but_not_the_box(sprite, bitmap_font):
+def test_outline_grows_the_stamp_but_not_the_box(sprite: str, bitmap_font: str) -> None:
     plain = ok(
         run(
             text.draw_text(
@@ -246,11 +250,13 @@ def test_outline_grows_the_stamp_but_not_the_box(sprite, bitmap_font):
             )
         )
     )
-    assert "text box 4x5" in plain and "text box 4x5" in outlined
-    assert "stamp 4x5" in plain and "stamp 6x7" in outlined
+    assert "text box 4x5" in plain
+    assert "text box 4x5" in outlined
+    assert "stamp 4x5" in plain
+    assert "stamp 6x7" in outlined
 
 
-def test_empty_text_is_a_no_op(sprite, bitmap_font):
+def test_empty_text_is_a_no_op(sprite: str, bitmap_font: str) -> None:
     out = run(text.draw_text(sprite, "", 0, 0, bitmap_font))
     assert out.startswith("OK")
 
@@ -258,7 +264,7 @@ def test_empty_text_is_a_no_op(sprite, bitmap_font):
 # ── truetype ──────────────────────────────────────────────────────────
 
 
-def test_truetype_renders_hard_pixels_by_default():
+def test_truetype_renders_hard_pixels_by_default() -> None:
     path = _system_truetype()
     if not path:
         pytest.skip("no TrueType font available on this machine")
@@ -271,7 +277,9 @@ def test_truetype_renders_hard_pixels_by_default():
 # ── list_text_fonts branches ────────────────────────────────────────────
 
 
-def test_list_fonts_reports_user_and_system_sections(monkeypatch):
+def test_list_fonts_reports_user_and_system_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake = [
         {"name": "MyBitmap", "kind": "bitmap", "path": "/x", "source": "user"},
         {"name": "Arial", "kind": "truetype", "path": "/y", "source": "system"},
@@ -284,7 +292,7 @@ def test_list_fonts_reports_user_and_system_sections(monkeypatch):
     assert "Arial" in out
 
 
-def test_list_fonts_reports_user_only(monkeypatch):
+def test_list_fonts_reports_user_only(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = [{"name": "MyBitmap", "kind": "bitmap", "path": "/x", "source": "user"}]
     monkeypatch.setattr(text.fontlib, "available_fonts", lambda: fake)
     out = run(text.list_text_fonts())
@@ -292,7 +300,7 @@ def test_list_fonts_reports_user_only(monkeypatch):
     assert "System fonts" not in out
 
 
-def test_list_fonts_reports_system_only(monkeypatch):
+def test_list_fonts_reports_system_only(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = [{"name": "Arial", "kind": "truetype", "path": "/y", "source": "system"}]
     monkeypatch.setattr(text.fontlib, "available_fonts", lambda: fake)
     out = run(text.list_text_fonts())
@@ -300,15 +308,18 @@ def test_list_fonts_reports_system_only(monkeypatch):
     assert "System fonts (1, all truetype):" in out
 
 
-def test_list_fonts_reports_no_fonts_found(monkeypatch):
+def test_list_fonts_reports_no_fonts_found(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(text.fontlib, "available_fonts", list)
     out = run(text.list_text_fonts())
     assert out == "No fonts found. Drop a .ttf into ~/.aseprite-mcp/fonts/."
 
 
-def test_list_fonts_surfaces_discovery_errors(monkeypatch):
-    def boom():
-        raise RuntimeError("disk unreadable")
+def test_list_fonts_surfaces_discovery_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def boom() -> list[dict[str, str]]:
+        msg = "disk unreadable"
+        raise RuntimeError(msg)
 
     monkeypatch.setattr(text.fontlib, "available_fonts", boom)
     out = run(text.list_text_fonts())
@@ -318,7 +329,7 @@ def test_list_fonts_surfaces_discovery_errors(monkeypatch):
 # ── _text_origin anchor branches (via draw_text) ────────────────────────
 
 
-def test_right_anchor_subtracts_full_width(sprite, bitmap_font):
+def test_right_anchor_subtracts_full_width(sprite: str, bitmap_font: str) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -340,7 +351,7 @@ def test_right_anchor_subtracts_full_width(sprite, bitmap_font):
     assert "at (26, 2)" in out
 
 
-def test_bottom_anchor_subtracts_full_height(sprite, bitmap_font):
+def test_bottom_anchor_subtracts_full_height(sprite: str, bitmap_font: str) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -361,7 +372,9 @@ def test_bottom_anchor_subtracts_full_height(sprite, bitmap_font):
     assert "at (2, 25)" in out
 
 
-def test_baseline_anchor_applies_no_vertical_correction(sprite, bitmap_font):
+def test_baseline_anchor_applies_no_vertical_correction(
+    sprite: str, bitmap_font: str
+) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -384,7 +397,9 @@ def test_baseline_anchor_applies_no_vertical_correction(sprite, bitmap_font):
     assert "at (2, 15)" in out
 
 
-def test_baselineleft_anchor_applies_no_vertical_correction(sprite, bitmap_font):
+def test_baselineleft_anchor_applies_no_vertical_correction(
+    sprite: str, bitmap_font: str
+) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -406,55 +421,56 @@ def test_baselineleft_anchor_applies_no_vertical_correction(sprite, bitmap_font)
 # ── color validation branches ───────────────────────────────────────────
 
 
-def test_draw_text_rejects_invalid_fill_color(sprite, bitmap_font):
+def test_draw_text_rejects_invalid_fill_color(sprite: str, bitmap_font: str) -> None:
     out = run(text.draw_text(sprite, "A", 0, 0, bitmap_font, color="not-a-color"))
     assert out == "Invalid color value: not-a-color"
 
 
-def test_draw_text_rejects_invalid_outline_color(sprite, bitmap_font):
+def test_draw_text_rejects_invalid_outline_color(sprite: str, bitmap_font: str) -> None:
     out = run(
         text.draw_text(sprite, "A", 0, 0, bitmap_font, outline_color="not-a-color")
     )
     assert out == "Invalid outline_color value: not-a-color"
 
 
-def test_draw_text_rejects_invalid_shadow_color(sprite, bitmap_font):
+def test_draw_text_rejects_invalid_shadow_color(sprite: str, bitmap_font: str) -> None:
     out = run(
         text.draw_text(sprite, "A", 0, 0, bitmap_font, shadow_color="not-a-color")
     )
     assert out == "Invalid shadow_color value: not-a-color"
 
 
-def test_draw_text_missing_file(bitmap_font):
+def test_draw_text_missing_file(bitmap_font: str) -> None:
     missing = "/tmp/ase-pytest/does-not-exist.aseprite"
     out = run(text.draw_text(missing, "A", 0, 0, bitmap_font))
     assert out == f"File {missing} not found"
 
 
-def test_draw_text_font_load_error_is_reported(sprite):
+def test_draw_text_font_load_error_is_reported(sprite: str) -> None:
     out = run(text.draw_text(sprite, "A", 0, 0, "definitely-not-a-font"))
     assert out.startswith("ERROR:")
 
 
 def test_draw_text_tolerates_temp_file_cleanup_failure(
-    sprite, bitmap_font, monkeypatch
-):
+    sprite: str, bitmap_font: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The finally-block Path(tmp_name).unlink() can race a concurrent
     # cleanup or antivirus lock; the swallowed OSError must not surface to
     # the caller or block the real success/failure result.
     real_unlink = Path.unlink
 
-    def flaky_unlink(self, *args, **kwargs):
+    def flaky_unlink(self: Path, missing_ok: bool = False) -> None:
         if str(self).endswith(".png"):
-            raise OSError("simulated cleanup failure")
-        return real_unlink(self, *args, **kwargs)
+            msg = "simulated cleanup failure"
+            raise OSError(msg)
+        real_unlink(self, missing_ok=missing_ok)
 
     monkeypatch.setattr(Path, "unlink", flaky_unlink)
     out = ok(run(text.draw_text(sprite, "A", 0, 0, bitmap_font)))
     assert "Drew" in out
 
 
-def test_draw_text_shadow_with_no_outline(sprite, bitmap_font):
+def test_draw_text_shadow_with_no_outline(sprite: str, bitmap_font: str) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -475,7 +491,9 @@ def test_draw_text_shadow_with_no_outline(sprite, bitmap_font):
     assert "Drew" in out
 
 
-def test_draw_text_outline_without_diagonals_is_smaller(sprite, bitmap_font):
+def test_draw_text_outline_without_diagonals_is_smaller(
+    sprite: str, bitmap_font: str
+) -> None:
     diag = ok(
         run(
             text.draw_text(
@@ -510,10 +528,13 @@ def test_draw_text_outline_without_diagonals_is_smaller(sprite, bitmap_font):
     )
     # Both grow the stamp beyond the 4x5 glyph box, but the 4-way outline is
     # never larger than the diagonal one.
-    assert "text box 4x5" in diag and "text box 4x5" in boxy
+    assert "text box 4x5" in diag
+    assert "text box 4x5" in boxy
 
 
-def test_draw_text_creates_missing_layer_by_default(sprite, bitmap_font):
+def test_draw_text_creates_missing_layer_by_default(
+    sprite: str, bitmap_font: str
+) -> None:
     out = ok(
         run(
             text.draw_text(
@@ -524,7 +545,9 @@ def test_draw_text_creates_missing_layer_by_default(sprite, bitmap_font):
     assert "Drew" in out
 
 
-def test_draw_text_reports_missing_layer_when_create_disabled(sprite, bitmap_font):
+def test_draw_text_reports_missing_layer_when_create_disabled(
+    sprite: str, bitmap_font: str
+) -> None:
     out = run(
         text.draw_text(
             sprite,
@@ -540,12 +563,14 @@ def test_draw_text_reports_missing_layer_when_create_disabled(sprite, bitmap_fon
     assert "Layer not found" in out
 
 
-def test_draw_text_without_layer_name_uses_active_layer(sprite, bitmap_font):
+def test_draw_text_without_layer_name_uses_active_layer(
+    sprite: str, bitmap_font: str
+) -> None:
     out = ok(run(text.draw_text(sprite, "A", 0, 0, bitmap_font)))
     assert "Drew" in out
 
 
-def test_draw_text_reports_frame_out_of_range(sprite, bitmap_font):
+def test_draw_text_reports_frame_out_of_range(sprite: str, bitmap_font: str) -> None:
     out = run(
         text.draw_text(
             sprite, "A", 0, 0, bitmap_font, layer_name="body", frame_index=999

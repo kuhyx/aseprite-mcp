@@ -12,7 +12,7 @@ from conftest import BASE, ok, run
 from aseprite_mcp.tools import canvas, drawing, palette
 
 
-def _fresh_sprite(name):
+def _fresh_sprite(name: str) -> str:
     path = f"{BASE}/{name}.aseprite"
     ok(run(canvas.create_canvas(16, 16, path)))
     ok(run(canvas.add_layer(path, "body")))
@@ -22,17 +22,17 @@ def _fresh_sprite(name):
 # ── missing-file guards ──────────────────────────────────────────────────
 
 
-def test_get_palette_missing_file():
+def test_get_palette_missing_file() -> None:
     result = run(palette.get_palette(f"{BASE}/does-not-exist.aseprite"))
     assert result == f"File {BASE}/does-not-exist.aseprite not found"
 
 
-def test_set_palette_missing_file():
+def test_set_palette_missing_file() -> None:
     result = run(palette.set_palette(f"{BASE}/does-not-exist.aseprite", ["#000000"]))
     assert result == f"File {BASE}/does-not-exist.aseprite not found"
 
 
-def test_remap_colors_missing_file():
+def test_remap_colors_missing_file() -> None:
     result = run(
         palette.remap_colors_in_cel_range(
             f"{BASE}/does-not-exist.aseprite",
@@ -45,12 +45,12 @@ def test_remap_colors_missing_file():
     assert result == f"File {BASE}/does-not-exist.aseprite not found"
 
 
-def test_quantize_to_palette_missing_file():
+def test_quantize_to_palette_missing_file() -> None:
     result = run(palette.quantize_to_palette(f"{BASE}/does-not-exist.aseprite"))
     assert result == f"File {BASE}/does-not-exist.aseprite not found"
 
 
-def test_set_color_mode_missing_file():
+def test_set_color_mode_missing_file() -> None:
     result = run(palette.set_color_mode(f"{BASE}/does-not-exist.aseprite", "rgb"))
     assert result == f"File {BASE}/does-not-exist.aseprite not found"
 
@@ -58,7 +58,7 @@ def test_set_color_mode_missing_file():
 # ── get_palette ───────────────────────────────────────────────────────
 
 
-def test_get_palette_returns_json_array():
+def test_get_palette_returns_json_array() -> None:
     fresh = _fresh_sprite("palette-get")
     result = ok(run(palette.get_palette(fresh)))
     colors = json.loads(result)
@@ -69,19 +69,19 @@ def test_get_palette_returns_json_array():
 # ── set_palette ───────────────────────────────────────────────────────
 
 
-def test_set_palette_rejects_empty_list():
+def test_set_palette_rejects_empty_list() -> None:
     fresh = _fresh_sprite("palette-set-empty")
     result = run(palette.set_palette(fresh, []))
     assert result == "Colors list cannot be empty"
 
 
-def test_set_palette_rejects_bad_hex():
+def test_set_palette_rejects_bad_hex() -> None:
     fresh = _fresh_sprite("palette-set-bad")
     result = run(palette.set_palette(fresh, ["not-a-color"]))
     assert result == "Colors must use #RRGGBB values"
 
 
-def test_set_palette_success():
+def test_set_palette_success() -> None:
     fresh = _fresh_sprite("palette-set-ok")
     colors = ["#000000", "#FFFFFF", "#FF0000"]
     result = ok(run(palette.set_palette(fresh, colors)))
@@ -91,13 +91,13 @@ def test_set_palette_success():
 # ── remap_colors_in_cel_range ────────────────────────────────────────────
 
 
-def test_remap_colors_rejects_empty_mappings():
+def test_remap_colors_rejects_empty_mappings() -> None:
     fresh = _fresh_sprite("palette-remap-empty")
     result = run(palette.remap_colors_in_cel_range(fresh, "body", 1, 1, []))
     assert result == "Mappings list cannot be empty"
 
 
-def test_remap_colors_rejects_bad_hex():
+def test_remap_colors_rejects_bad_hex() -> None:
     fresh = _fresh_sprite("palette-remap-bad")
     result = run(
         palette.remap_colors_in_cel_range(
@@ -114,7 +114,7 @@ def test_remap_colors_rejects_bad_hex():
     assert result == "Mappings must use #RRGGBB colors"
 
 
-def test_remap_colors_reports_frame_range_out_of_bounds():
+def test_remap_colors_reports_frame_range_out_of_bounds() -> None:
     fresh = _fresh_sprite("palette-remap-oob")
     result = run(
         palette.remap_colors_in_cel_range(
@@ -125,7 +125,7 @@ def test_remap_colors_reports_frame_range_out_of_bounds():
     assert "out of bounds" in result
 
 
-def test_remap_colors_reports_layer_not_found():
+def test_remap_colors_reports_layer_not_found() -> None:
     fresh = _fresh_sprite("palette-remap-nolayer")
     result = run(
         palette.remap_colors_in_cel_range(
@@ -136,9 +136,15 @@ def test_remap_colors_reports_layer_not_found():
     assert "Layer not found" in result
 
 
-def test_remap_colors_success():
+def test_remap_colors_success() -> None:
     fresh = _fresh_sprite("palette-remap-ok")
-    ok(run(drawing.draw_rectangle_at(fresh, "body", 1, 0, 0, 4, 4, "#D04648", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                fresh, "body", 1, 0, 0, 4, 4, "#D04648", fill=True
+            )
+        )
+    )
     result = ok(
         run(
             palette.remap_colors_in_cel_range(
@@ -149,10 +155,16 @@ def test_remap_colors_success():
     assert "Remapped colors on 'body' frames 1-1" in result
 
 
-def test_remap_colors_with_source_frame_and_create_missing_cels():
+def test_remap_colors_with_source_frame_and_create_missing_cels() -> None:
     fresh = _fresh_sprite("palette-remap-source")
     ok(run(canvas.add_frame(fresh)))
-    ok(run(drawing.draw_rectangle_at(fresh, "body", 1, 0, 0, 4, 4, "#D04648", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                fresh, "body", 1, 0, 0, 4, 4, "#D04648", fill=True
+            )
+        )
+    )
     result = ok(
         run(
             palette.remap_colors_in_cel_range(
@@ -169,7 +181,7 @@ def test_remap_colors_with_source_frame_and_create_missing_cels():
     assert "Remapped colors on 'body' frames 1-2" in result
 
 
-def test_remap_colors_reports_source_frame_out_of_range():
+def test_remap_colors_reports_source_frame_out_of_range() -> None:
     fresh = _fresh_sprite("palette-remap-source-oob")
     result = run(
         palette.remap_colors_in_cel_range(
@@ -188,7 +200,7 @@ def test_remap_colors_reports_source_frame_out_of_range():
 # ── apply_palette_preset ────────────────────────────────────────────────
 
 
-def test_apply_palette_preset_missing_file_propagates_set_palette_error():
+def test_apply_palette_preset_missing_file_propagates_set_palette_error() -> None:
     # apply_palette_preset resolves colors first, then delegates to
     # set_palette; on a missing file it returns set_palette's raw "File
     # ... not found" message (which does not start with "Palette set").
@@ -201,12 +213,12 @@ def test_apply_palette_preset_missing_file_propagates_set_palette_error():
 # ── generate_color_ramp ──────────────────────────────────────────────────
 
 
-def test_generate_color_ramp_rejects_bad_color():
+def test_generate_color_ramp_rejects_bad_color() -> None:
     result = run(palette.generate_color_ramp("not-a-color"))
     assert result == "Invalid color value: not-a-color"
 
 
-def test_generate_color_ramp_rejects_steps_out_of_range():
+def test_generate_color_ramp_rejects_steps_out_of_range() -> None:
     result = run(palette.generate_color_ramp("#D04648", steps=1))
     assert result == "steps must be between 2 and 16"
 
@@ -214,7 +226,7 @@ def test_generate_color_ramp_rejects_steps_out_of_range():
     assert result == "steps must be between 2 and 16"
 
 
-def test_generate_color_ramp_rejects_lightness_range_out_of_bounds():
+def test_generate_color_ramp_rejects_lightness_range_out_of_bounds() -> None:
     result = run(palette.generate_color_ramp("#D04648", lightness_range=-0.1))
     assert result == "lightness_range must be between 0 and 1"
 
@@ -222,7 +234,7 @@ def test_generate_color_ramp_rejects_lightness_range_out_of_bounds():
     assert result == "lightness_range must be between 0 and 1"
 
 
-def test_generate_color_ramp_two_steps():
+def test_generate_color_ramp_two_steps() -> None:
     # Smallest allowed step count (validation rejects steps < 2), giving
     # mid == 0.5 and t values of exactly -0.5/+0.5. Note the ternary's
     # `else 0` arm (steps > 1 false) is unreachable: validation guarantees
@@ -234,23 +246,29 @@ def test_generate_color_ramp_two_steps():
 # ── quantize_to_palette ──────────────────────────────────────────────────
 
 
-def test_quantize_to_palette_reports_layer_not_found():
+def test_quantize_to_palette_reports_layer_not_found() -> None:
     fresh = _fresh_sprite("palette-quantize-nolayer")
     result = run(palette.quantize_to_palette(fresh, layer_name="no-such-layer"))
     assert result.startswith("Failed to quantize:")
     assert "Layer not found" in result
 
 
-def test_quantize_to_palette_reports_frame_range_out_of_bounds():
+def test_quantize_to_palette_reports_frame_range_out_of_bounds() -> None:
     fresh = _fresh_sprite("palette-quantize-oob")
     result = run(palette.quantize_to_palette(fresh, start_frame=1, end_frame=999))
     assert result.startswith("Failed to quantize:")
     assert "out of bounds" in result
 
 
-def test_quantize_to_palette_specific_layer():
+def test_quantize_to_palette_specific_layer() -> None:
     fresh = _fresh_sprite("palette-quantize-layer")
-    ok(run(drawing.draw_rectangle_at(fresh, "body", 1, 0, 0, 4, 4, "#D04648", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                fresh, "body", 1, 0, 0, 4, 4, "#D04648", fill=True
+            )
+        )
+    )
     ok(run(palette.apply_palette_preset(fresh, "gameboy")))
     result = ok(run(palette.quantize_to_palette(fresh, layer_name="body")))
     assert "Quantized" in result
@@ -259,12 +277,12 @@ def test_quantize_to_palette_specific_layer():
 # ── set_color_mode ───────────────────────────────────────────────────────
 
 
-def test_set_color_mode_rejects_unknown_mode(sprite):
+def test_set_color_mode_rejects_unknown_mode(sprite: str) -> None:
     result = run(palette.set_color_mode(sprite, "cmyk"))
     assert result == "mode must be 'rgb', 'grayscale', or 'indexed'"
 
 
-def test_set_color_mode_grayscale_roundtrip(sprite):
+def test_set_color_mode_grayscale_roundtrip(sprite: str) -> None:
     ok(run(palette.set_color_mode(sprite, "grayscale")))
     result = ok(run(palette.set_color_mode(sprite, "rgb")))
     assert result == f"Color mode set to rgb in {sprite}"
@@ -273,7 +291,7 @@ def test_set_color_mode_grayscale_roundtrip(sprite):
 # ── mocked execute_lua_script_checked: process-level subprocess failures ──
 
 
-def test_get_palette_reports_subprocess_failure(sprite):
+def test_get_palette_reports_subprocess_failure(sprite: str) -> None:
     with patch(
         "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
     ) as m:
@@ -282,7 +300,7 @@ def test_get_palette_reports_subprocess_failure(sprite):
     assert result == "Failed to get palette: boom"
 
 
-def test_set_palette_reports_subprocess_failure(sprite):
+def test_set_palette_reports_subprocess_failure(sprite: str) -> None:
     with patch(
         "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
     ) as m:
@@ -291,7 +309,7 @@ def test_set_palette_reports_subprocess_failure(sprite):
     assert result == "Failed to set palette: boom"
 
 
-def test_set_color_mode_reports_subprocess_failure(sprite):
+def test_set_color_mode_reports_subprocess_failure(sprite: str) -> None:
     with patch(
         "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
     ) as m:
@@ -300,7 +318,7 @@ def test_set_color_mode_reports_subprocess_failure(sprite):
     assert result == "Failed to set color mode: boom"
 
 
-def test_quantize_to_palette_skips_non_count_lines_before_matching(sprite):
+def test_quantize_to_palette_skips_non_count_lines_before_matching(sprite: str) -> None:
     with patch(
         "aseprite_mcp.tools.palette.AsepriteCommand.execute_lua_script_checked"
     ) as m:

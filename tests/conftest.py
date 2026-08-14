@@ -10,13 +10,15 @@ mounts /tmp and /var/folders.
 """
 
 import asyncio
-import os
 import shutil
 import sys
+from collections.abc import Coroutine
+from pathlib import Path
+from typing import Any
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import aseprite_mcp.tools  # noqa: F401  (registers all tools)
 from aseprite_mcp.tools import canvas, drawing
@@ -24,12 +26,12 @@ from aseprite_mcp.tools import canvas, drawing
 BASE = "/tmp/ase-pytest"
 
 
-def run(coro):
+def run[T](coro: Coroutine[Any, Any, T]) -> T:
     """Execute an async tool call from a sync test."""
     return asyncio.run(coro)
 
 
-def ok(result):
+def ok[T](result: T) -> T:
     """Assert a tool call did not return an error message."""
     assert not str(result).startswith(
         ("Failed", "ERROR", "Invalid", "Script failed")
@@ -38,18 +40,24 @@ def ok(result):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def base_dir():
+def base_dir() -> str:
     shutil.rmtree(BASE, ignore_errors=True)
-    os.makedirs(BASE, exist_ok=True)
+    Path(BASE).mkdir(parents=True, exist_ok=True)
     return BASE
 
 
 @pytest.fixture(scope="module")
-def sprite(request, base_dir):
-    """A fresh 32x32 sprite per test module with a painted 'body' layer."""
+def sprite(request: pytest.FixtureRequest) -> str:
+    """Create a fresh 32x32 sprite per test module with a painted 'body' layer."""
     name = request.module.__name__.removeprefix("tests.").removeprefix("test_")
     path = f"{BASE}/{name}.aseprite"
     ok(run(canvas.create_canvas(32, 32, path)))
     ok(run(canvas.add_layer(path, "body")))
-    ok(run(drawing.draw_rectangle_at(path, "body", 1, 8, 8, 16, 16, "#D04648", True)))
+    ok(
+        run(
+            drawing.draw_rectangle_at(
+                path, "body", 1, 8, 8, 16, 16, "#D04648", fill=True
+            )
+        )
+    )
     return path

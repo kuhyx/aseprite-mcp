@@ -11,13 +11,13 @@ from conftest import ok, run
 from aseprite_mcp.tools import canvas, drawing, pixel_read
 
 
-def test_composite_reads_top_layer(sprite):
+def test_composite_reads_top_layer(sprite: str) -> None:
     # fixture: 32x32, 'body' layer with a red rect at (8,8,16,16).
     ok(run(canvas.add_layer(sprite, "overlay")))
     ok(
         run(
             drawing.draw_rectangle_at(
-                sprite, "overlay", 1, 8, 8, 16, 16, "#3050D0", True
+                sprite, "overlay", 1, 8, 8, 16, 16, "#3050D0", fill=True
             )
         )
     )
@@ -29,20 +29,20 @@ def test_composite_reads_top_layer(sprite):
     assert comp.lower().startswith("#3050d0"), comp
 
 
-def test_composite_rect_shape(sprite):
+def test_composite_rect_shape(sprite: str) -> None:
     px = json.loads(run(pixel_read.get_composite_rect(sprite, 8, 8, 4, 4, 1)))
     assert len(px) == 16
     assert all("hex" in p and "a" in p for p in px)
 
 
-def test_composite_pixel_empty_area_is_transparent(sprite):
+def test_composite_pixel_empty_area_is_transparent(sprite: str) -> None:
     # A pixel inside the canvas but with no content drawn there reads as
     # transparent black.
     res = run(pixel_read.get_composite_pixel(sprite, 1, 1, 1))
     assert "a=0" in res, res
 
 
-def test_composite_pixel_outside_canvas_is_transparent(sprite):
+def test_composite_pixel_outside_canvas_is_transparent(sprite: str) -> None:
     # Truly off-canvas coordinates (negative, and beyond width/height) hit
     # the tool's explicit bounds guard rather than just an unpainted pixel;
     # both must read as transparent black rather than erroring.
