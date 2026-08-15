@@ -19,6 +19,8 @@ no reliable way to know which cel is active from here, and asserting
 content would be testing a guess, not the file's documented behavior.
 """
 
+from collections.abc import Callable
+from pathlib import Path
 from unittest.mock import patch
 
 from conftest import ok, run
@@ -792,3 +794,114 @@ def test_draw_pixels_at_empty_pixel_list_uses_fallback_bounds(sprite: str) -> No
     assert result == (
         f"Pixels drawn on 'empty-pixels-at' frame 1 in {sprite} (0 pixels)"
     )
+
+
+# --- fabricated success: _at tools with create_if_missing=False ---
+#
+# Every one of these guards a missing cel with a `return` that used to sit
+# inside app.transaction, so the script fell through to spr:saveAs +
+# print("OK") and the tool reported drawing it never did. The guards are now
+# hoisted above the transaction; mtime proves saveAs never runs.
+
+
+def _no_cel_calls(sprite: str, layer: str) -> list[tuple[str, Callable[[], object]]]:
+    """One no-cel call per _at tool, all with create_if_missing=False.
+
+    Each entry is a thunk so the coroutine is only created when it is about
+    to be awaited -- building them all up front leaves the later ones
+    un-awaited when an earlier assertion fails.
+    """
+    return [
+        (
+            "draw_pixels_at",
+            lambda: drawing.draw_pixels_at(
+                sprite,
+                layer,
+                1,
+                [{"x": 1, "y": 1, "color": "#FF0000"}],
+                create_if_missing=False,
+            ),
+        ),
+        (
+            "draw_line_at",
+            lambda: drawing.draw_line_at(
+                sprite, layer, 1, 0, 0, 4, 4, "#FF0000", 1, create_if_missing=False
+            ),
+        ),
+        (
+            "draw_rectangle_at",
+            lambda: drawing.draw_rectangle_at(
+                sprite, layer, 1, 0, 0, 4, 4, "#FF0000", create_if_missing=False
+            ),
+        ),
+        (
+            "draw_circle_at",
+            lambda: drawing.draw_circle_at(
+                sprite, layer, 1, 4, 4, 2, "#FF0000", create_if_missing=False
+            ),
+        ),
+        (
+            "fill_area_at",
+            lambda: drawing.fill_area_at(
+                sprite, layer, 1, 1, 1, "#FF0000", create_if_missing=False
+            ),
+        ),
+        (
+            "draw_ellipse_at",
+            lambda: drawing.draw_ellipse_at(
+                sprite, layer, 1, 4, 4, 3, 2, "#FF0000", create_if_missing=False
+            ),
+        ),
+        (
+            "draw_polygon",
+            lambda: drawing.draw_polygon(
+                sprite,
+                layer,
+                1,
+                [{"x": 0, "y": 0}, {"x": 4, "y": 0}, {"x": 2, "y": 4}],
+                "#FF0000",
+                create_if_missing=False,
+            ),
+        ),
+        (
+            "draw_path",
+            lambda: drawing.draw_path(
+                sprite,
+                layer,
+                1,
+                [{"x": 0, "y": 0}, {"x": 4, "y": 4}],
+                "#FF0000",
+                1,
+                create_if_missing=False,
+            ),
+        ),
+        (
+            "apply_gradient_rect",
+            lambda: drawing.apply_gradient_rect(
+                sprite,
+                layer,
+                1,
+                0,
+                0,
+                4,
+                4,
+                "#000000",
+                "#FFFFFF",
+                create_if_missing=False,
+            ),
+        ),
+    ]
+
+
+def test_at_tools_no_cel_without_create_flag_error(sprite: str) -> None:
+    layer = "no-cel-at-tools"
+    ok(run(canvas.add_layer(sprite, layer)))
+    failures: list[str] = []
+    for name, make_call in _no_cel_calls(sprite, layer):
+        before = Path(sprite).stat().st_mtime_ns
+        result = str(run(make_call()))  # type: ignore[arg-type]
+        if not result.startswith("Failed"):
+            failures.append(f"{name}: fabricated success -> {result}")
+        elif Path(sprite).stat().st_mtime_ns != before:
+            failures.append(f"{name}: saved the file on the error path")
+    assert not failures, "\n".join(failures)

@@ -76,6 +76,25 @@ local function normalize_cel(spr, layer, frame, create)
 end
 """
 
+# Fail before opening a transaction when the target cel does not exist and
+# the caller did not ask for one to be created.
+#
+# This MUST stay above app.transaction. A `return` inside the transaction
+# closure only exits the closure, so the script falls through to
+# spr:saveAs() + print("OK") and the tool reports drawing it never did.
+# Printing "ERROR:" from inside the closure is equally wrong: the tool then
+# reports failure but the file is still saved. Expects `target`, `idx` and a
+# `create` boolean to already be in scope.
+REQUIRE_CEL = """
+local function require_cel(spr, layer, frame, create)
+    if not create and not layer:cel(frame) then
+        print("ERROR:No cel at that layer/frame")
+        return false
+    end
+    return true
+end
+"""
+
 # Bounds-guarded putPixel.
 PSET = """
 local function pset(img, x, y, color)

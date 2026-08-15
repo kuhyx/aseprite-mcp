@@ -6,7 +6,7 @@ from pydantic import Field
 from .. import mcp
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
-from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET
+from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET, REQUIRE_CEL
 from ..core.paths import path_exists
 
 _OK_MARKER_FIELD_COUNT = 3
@@ -520,6 +520,7 @@ async def draw_pixels_at(
     if idx < 1 or idx > #spr.frames then print("ERROR:Frame index out of range") return end
 
     {FIND_LAYER}
+    {REQUIRE_CEL}
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
@@ -527,15 +528,16 @@ async def draw_pixels_at(
     local written = 0
     local skipped = 0
 
+    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = target:cel(spr.frames[idx])
-        if not cel and {create_flag} then
+        if not cel then
             local img = Image(spr.width, spr.height, spr.colorMode)
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
-        if not cel then return end
 
         -- Grow the cel so every requested pixel is inside it.
         --
@@ -695,18 +697,20 @@ async def draw_line_at(
     if idx < 1 or idx > #spr.frames then print("ERROR:Frame index out of range") return end
 
     {FIND_LAYER}
+    {REQUIRE_CEL}
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
+
+    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = target:cel(spr.frames[idx])
-        if not cel and {create_flag} then
+        if not cel then
             local img = Image(spr.width, spr.height, spr.colorMode)
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
-        if not cel then return end
         local img = cel.image
         local cox = cel.position.x
         local coy = cel.position.y
@@ -788,18 +792,20 @@ async def draw_rectangle_at(
     if idx < 1 or idx > #spr.frames then print("ERROR:Frame index out of range") return end
 
     {FIND_LAYER}
+    {REQUIRE_CEL}
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
+
+    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = target:cel(spr.frames[idx])
-        if not cel and {create_flag} then
+        if not cel then
             local img = Image(spr.width, spr.height, spr.colorMode)
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
-        if not cel then return end
         local color = Color({r}, {g}, {b}, {a})
         local tool = {'"rectangle"' if not fill else '"filled_rectangle"'}
         app.useTool({{
@@ -877,18 +883,20 @@ async def draw_circle_at(
     if idx < 1 or idx > #spr.frames then print("ERROR:Frame index out of range") return end
 
     {FIND_LAYER}
+    {REQUIRE_CEL}
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
+
+    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = target:cel(spr.frames[idx])
-        if not cel and {create_flag} then
+        if not cel then
             local img = Image(spr.width, spr.height, spr.colorMode)
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
-        if not cel then return end
         local color = Color({r}, {g}, {b}, {a})
         local tool = {'"ellipse"' if not fill else '"filled_ellipse"'}
         app.useTool({{
@@ -969,18 +977,20 @@ async def fill_area_at(
     if idx < 1 or idx > #spr.frames then print("ERROR:Frame index out of range") return end
 
     {FIND_LAYER}
+    {REQUIRE_CEL}
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
+
+    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = target:cel(spr.frames[idx])
-        if not cel and {create_flag} then
+        if not cel then
             local img = Image(spr.width, spr.height, spr.colorMode)
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
-        if not cel then return end
         local color = Color({r}, {g}, {b}, {a})
         app.useTool({{
             tool="paint_bucket",
@@ -1116,11 +1126,14 @@ async def draw_polygon(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
+    if not target:cel(spr.frames[idx]) and not {create_flag} then
+        print("ERROR:No cel at that layer/frame") return
+    end
+
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = normalize_cel(spr, target, spr.frames[idx], {create_flag})
-        if not cel then return end
         local img = cel.image
         local color = Color({r}, {g}, {b}, {a})
         local pts = {{ {points_lua} }}
@@ -1234,11 +1247,14 @@ async def draw_path(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
+    if not target:cel(spr.frames[idx]) and not {create_flag} then
+        print("ERROR:No cel at that layer/frame") return
+    end
+
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = normalize_cel(spr, target, spr.frames[idx], {create_flag})
-        if not cel then return end
         local img = cel.image
         local color = Color({r}, {g}, {b}, {a})
         local pts = {{ {points_lua} }}
@@ -1349,11 +1365,14 @@ async def apply_gradient_rect(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
+    if not target:cel(spr.frames[idx]) and not {create_flag} then
+        print("ERROR:No cel at that layer/frame") return
+    end
+
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = normalize_cel(spr, target, spr.frames[idx], {create_flag})
-        if not cel then return end
         local img = cel.image
         local w = {width}
         local h = {height}
@@ -1448,18 +1467,20 @@ async def draw_ellipse_at(
     if idx < 1 or idx > #spr.frames then print("ERROR:Frame index out of range") return end
 
     {FIND_LAYER}
+    {REQUIRE_CEL}
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
+
+    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
         app.activeFrame = spr.frames[idx]
         local cel = target:cel(spr.frames[idx])
-        if not cel and {create_flag} then
+        if not cel then
             local img = Image(spr.width, spr.height, spr.colorMode)
             cel = spr:newCel(target, spr.frames[idx], img, Point(0, 0))
         end
-        if not cel then return end
         local color = Color({r}, {g}, {b}, {a})
         local tool = {'"filled_ellipse"' if fill else '"ellipse"'}
         app.useTool({{
