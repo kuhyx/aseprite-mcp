@@ -100,8 +100,7 @@ def rows_threshold(d, eps=0.0):
     out = []
     for y in range(d):
         cy = y + 0.5 - r
-        n = sum(1 for x in range(d)
-                if (x + 0.5 - r) ** 2 + cy * cy <= (r + eps) ** 2)
+        n = sum(1 for x in range(d) if (x + 0.5 - r) ** 2 + cy * cy <= (r + eps) ** 2)
         out.append(n)
     return out
 ```

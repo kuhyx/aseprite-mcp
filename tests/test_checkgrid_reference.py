@@ -10,16 +10,36 @@ from the aseprite_mcp coverage target, so importing it here does not affect
 the 100% bar.
 """
 
+import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 _REFS = Path(__file__).parent.parent / "skills" / "item-icons" / "references"
-sys.path.insert(0, str(_REFS))
 
-import checkgrid  # noqa: E402
-import gridtool  # noqa: E402
+
+def _load(name: str) -> ModuleType:
+    """Import a reference script by path.
+
+    These live outside any package, so a plain `import` would need a
+    sys.path insert placed above it -- which is a module-level statement
+    before an import, i.e. an E402 that could only be silenced. Loading by
+    spec keeps the file suppression-free. checkgrid imports gridtool by
+    name, so the module is registered in sys.modules as well.
+    """
+    spec = importlib.util.spec_from_file_location(name, _REFS / f"{name}.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+gridtool = _load("gridtool")
+checkgrid = _load("checkgrid")
 
 # A 16x16 grid: 'o' body centred with a 2px margin all round, no problems
 # beyond the INFO lines.
