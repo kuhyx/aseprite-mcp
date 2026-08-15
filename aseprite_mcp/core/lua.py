@@ -86,12 +86,43 @@ end
 # reports failure but the file is still saved. Expects `target`, `idx` and a
 # `create` boolean to already be in scope.
 REQUIRE_CEL = """
-local function require_cel(spr, layer, frame, create)
+local function require_cel(layer, frame, create)
     if not create and not layer:cel(frame) then
         print("ERROR:No cel at that layer/frame")
         return false
     end
     return true
+end
+"""
+
+# Grow a cel so a sprite-global rectangle fits inside it, and return the cel.
+#
+# Aseprite cels are only as large as their content's bounding box, and
+# img:putPixel() outside that box is a silent no-op. Any tool that writes
+# through putPixel must widen the cel first or it reports success while
+# discarding the art. Mirrors the inline fix in draw_pixels_at (8281129).
+# The union is clipped to the canvas, since a cel cannot extend past it.
+GROW_CEL = """
+local function grow_cel(spr, layer, frame, nx, ny, nw, nh)
+    local cel = layer:cel(frame)
+    if not cel then
+        local img = Image(spr.width, spr.height, spr.colorMode)
+        img:clear()
+        return spr:newCel(layer, frame, img, Point(0, 0))
+    end
+    local need = Rectangle(nx, ny, nw, nh)
+    local cur = Rectangle(cel.bounds)
+    local union = cur:union(need)
+    union = union:intersect(Rectangle(0, 0, spr.width, spr.height))
+    if union.width > cur.width or union.height > cur.height
+       or union.x < cur.x or union.y < cur.y then
+        local grown = Image(union.width, union.height, spr.colorMode)
+        grown:clear()
+        grown:drawImage(cel.image, Point(cur.x - union.x, cur.y - union.y))
+        spr:newCel(layer, frame, grown, Point(union.x, union.y))
+        cel = layer:cel(frame)
+    end
+    return cel
 end
 """
 

@@ -6,7 +6,7 @@ from pydantic import Field
 from .. import mcp
 from ..core.colors import parse_hex_color
 from ..core.commands import AsepriteCommand, lua_escape
-from ..core.lua import FIND_LAYER, NORMALIZE_CEL, PSET, REQUIRE_CEL
+from ..core.lua import FIND_LAYER, GROW_CEL, NORMALIZE_CEL, PSET, REQUIRE_CEL
 from ..core.paths import path_exists
 
 _OK_MARKER_FIELD_COUNT = 3
@@ -64,30 +64,37 @@ async def draw_pixels(
     no active cel). For multi-layer or multi-frame sprites, prefer
     draw_pixels_at, which targets a named layer and frame index explicitly.
 
-    KNOWN LIMITATION: unlike draw_pixels_at, this does not grow the cel to
-    fit pixels outside its current bounds — a pixel outside the active cel's
-    bounding box is silently discarded even though this tool still reports
-    success. Use draw_pixels_at if you are drawing outside existing content
-    (e.g. adding a new feature in a previously-empty area).
+    The cel is grown to fit pixels outside its current bounds, so drawing in
+    a previously-empty area works. Pixels outside the CANVAS are still
+    impossible and are reported as skipped.
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
 
-    script = """
+    # Bounding box of every requested pixel, so the cel can be grown to fit.
+    xs = [int(p.get("x", 0)) for p in pixels]
+    ys = [int(p.get("y", 0)) for p in pixels]
+    if xs and ys:
+        need_x, need_y = min(xs), min(ys)
+        need_w, need_h = max(xs) - need_x + 1, max(ys) - need_y + 1
+    else:
+        need_x = need_y = 0
+        need_w = need_h = 1
+
+    script = f"""
     local spr = app.activeSprite
     if not spr then print("ERROR:No active sprite") return end
 
+    {GROW_CEL}
+
+    local layer = app.activeLayer or spr.layers[1]
+    local frame = app.activeFrame or spr.frames[1]
+
     app.transaction(function()
-        local cel = app.activeCel
-        if not cel then
-            -- If no active cel, create one
-            app.activeLayer = spr.layers[1]
-            app.activeFrame = spr.frames[1]
-            cel = app.activeCel
-            if not cel then
-                print("ERROR:No active cel and couldn't create one") return
-            end
-        end
+        app.activeLayer = layer
+        app.activeFrame = frame
+        local cel = grow_cel(spr, layer, frame,
+                             {need_x}, {need_y}, {need_w}, {need_h})
 
         local img = cel.image
         local cox = cel.position.x
@@ -156,9 +163,19 @@ async def draw_line(
         return f"Invalid color value: {color}"
     r, g, b, a = rgb
 
+    # Bounding box of the line, widened by put_thick's radius so a thick
+    # line's outer edge is inside the grown cel too.
+    radius = max(0, thickness // 2)
+    need_x = min(x1, x2) - radius
+    need_y = min(y1, y2) - radius
+    need_w = abs(x2 - x1) + 1 + 2 * radius
+    need_h = abs(y2 - y1) + 1 + 2 * radius
+
     script = f"""
     local spr = app.activeSprite
     if not spr then print("ERROR:No active sprite") return end
+
+    {GROW_CEL}
 
     local function put_thick(img, x, y, color, size)
         local r = math.max(0, math.floor(size / 2))
@@ -188,16 +205,14 @@ async def draw_line(
         end
     end
 
+    local layer = app.activeLayer or spr.layers[1]
+    local frame = app.activeFrame or spr.frames[1]
+
     app.transaction(function()
-        local cel = app.activeCel
-        if not cel then
-            app.activeLayer = spr.layers[1]
-            app.activeFrame = spr.frames[1]
-            cel = app.activeCel
-            if not cel then
-                print("ERROR:No active cel and couldn't create one") return
-            end
-        end
+        app.activeLayer = layer
+        app.activeFrame = frame
+        local cel = grow_cel(spr, layer, frame,
+                             {need_x}, {need_y}, {need_w}, {need_h})
         local img = cel.image
         local cox = cel.position.x
         local coy = cel.position.y
@@ -528,7 +543,7 @@ async def draw_pixels_at(
     local written = 0
     local skipped = 0
 
-    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+    if not require_cel(target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
@@ -701,7 +716,7 @@ async def draw_line_at(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
-    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+    if not require_cel(target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
@@ -796,7 +811,7 @@ async def draw_rectangle_at(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
-    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+    if not require_cel(target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
@@ -887,7 +902,7 @@ async def draw_circle_at(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
-    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+    if not require_cel(target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
@@ -981,7 +996,7 @@ async def fill_area_at(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
-    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+    if not require_cel(target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
@@ -1471,7 +1486,7 @@ async def draw_ellipse_at(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
-    if not require_cel(spr, target, spr.frames[idx], {create_flag}) then return end
+    if not require_cel(target, spr.frames[idx], {create_flag}) then return end
 
     app.transaction(function()
         app.activeLayer = target
