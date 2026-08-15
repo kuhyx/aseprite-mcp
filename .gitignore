@@ -56,9 +56,17 @@ coverage.xml
 # Icon/tile SOURCES drawn via the aseprite MCP. These .aseprite files ARE the
 # artwork — the ASCII grids they replaced were only ever a script's input, and
 # the previous session's work was lost precisely because it stayed untracked.
-# Exports (.png/.gif) remain ignored; they are regenerable from these.
 !examples/icon-animation/*.aseprite
 !examples/tileset/*.aseprite
+
+# Exports are tracked too, as the permanent showcase. They are regenerable from
+# the sources above, but "regenerable" needs Aseprite installed and running —
+# tracking them is what makes the art viewable on GitHub and in a plain clone.
+# `<name>.png` is the real 1x asset; `<name>_x8.png` is the 8x nearest-neighbour
+# render for viewing, since 16px art is invisible on a modern display.
+!examples/icon-animation/*.png
+!examples/tileset/*.png
+!examples/tileset/*.gif
 
 # Third-party reference sheets, vendored deliberately for measuring pixel-art
 # conventions. Licences and attribution are in references/CREDITS.md — read it

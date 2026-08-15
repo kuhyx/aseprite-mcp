@@ -25,6 +25,73 @@ A Python MCP server that gives AI assistants full control over [Aseprite](https:
 
 Both were created end-to-end by Claude Fable 5 through this server's MCP tools — drawing, checking its own work with scaled `export_frame` previews and `render_onion_skin`, then exporting. The tasks recreate the benchmark from [Draw Me a Swordsman](https://ljvmiranda921.github.io/notebook/2025/07/20/draw-me-a-swordsman/) by Lj Miranda, whose findings inspired this server's expanded toolset.
 
+## Example: an item/terrain set, drawn tile by tile
+
+Item icons at 16×16, shown at 8×. Each is a single frame drawn with `draw_pixels_at`
+and outlined with `outline_cel`.
+
+<table>
+  <tr>
+    <td align="center"><img src="examples/icon-animation/key_x8.png" width="96" alt="Pixel-art key icon"></td>
+    <td align="center"><img src="examples/icon-animation/scroll_x8.png" width="96" alt="Pixel-art scroll icon"></td>
+    <td align="center"><img src="examples/icon-animation/book_x8.png" width="96" alt="Pixel-art book icon"></td>
+    <td align="center"><img src="examples/icon-animation/bone_x8.png" width="96" alt="Pixel-art bone icon"></td>
+    <td align="center"><img src="examples/icon-animation/gem_x8.png" width="96" alt="Pixel-art gem icon"></td>
+    <td align="center"><img src="examples/icon-animation/bomb_x8.png" width="96" alt="Pixel-art bomb icon"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>key</sub></td>
+    <td align="center"><sub>scroll</sub></td>
+    <td align="center"><sub>book</sub></td>
+    <td align="center"><sub>bone</sub></td>
+    <td align="center"><sub>gem</sub></td>
+    <td align="center"><sub>bomb</sub></td>
+  </tr>
+</table>
+
+Terrain tiles at 32×32, shown at 8×. The four base tiles are seamless — they were
+checked by measuring the pixel difference across the wrap edge, so they repeat
+without a visible grid. The three transition tiles are composited from the real
+base tiles with an irregular interlocking edge, not a straight cut.
+
+<table>
+  <tr>
+    <td align="center"><img src="examples/tileset/grass_x8.png" width="112" alt="Seamless grass tile"></td>
+    <td align="center"><img src="examples/tileset/dirt_x8.png" width="112" alt="Seamless dirt tile"></td>
+    <td align="center"><img src="examples/tileset/stone_x8.png" width="112" alt="Seamless stone tile"></td>
+    <td align="center"><img src="examples/tileset/sand_x8.png" width="112" alt="Seamless sand tile"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>grass</sub></td>
+    <td align="center"><sub>dirt</sub></td>
+    <td align="center"><sub>stone</sub></td>
+    <td align="center"><sub>sand</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="examples/tileset/grass_dirt_x8.png" width="112" alt="Grass to dirt transition tile"></td>
+    <td align="center"><img src="examples/tileset/sand_water_x8.png" width="112" alt="Sand to water transition tile"></td>
+    <td align="center"><img src="examples/tileset/grass_sand_x8.png" width="112" alt="Grass to sand transition tile"></td>
+    <td align="center"><img src="examples/tileset/water_flow_x8.gif" width="112" alt="4-frame animated water tile"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>grass → dirt</sub></td>
+    <td align="center"><sub>sand → water</sub></td>
+    <td align="center"><sub>grass → sand</sub></td>
+    <td align="center"><sub><b>water</b>, animated</sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="4"><img src="examples/tileset/water_flow_sheet.png" width="560" alt="Water flow animation: four frames of a horizontally scrolling wave pattern"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="4"><sub>The water tile's 4-frame <code>flow</code> loop as a spritesheet. Each frame shifts the
+    wave pattern by an equal offset, so the cycle scrolls smoothly and seamlessly.</sub></td>
+  </tr>
+</table>
+
+Every `.aseprite` source in `examples/` is tracked alongside its export — the sources
+are the artwork, and the `_x8.png` files exist only because 16-pixel art is invisible
+at 1:1 on a modern display.
+
 ## Tool Categories
 
 | Category | Tools | Description |
