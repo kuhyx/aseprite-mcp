@@ -1,0 +1,4 @@
+# #0003 finish.sh gate is blind to uv-managed envs: run_tests uses bare `python3 -m pytest` (No module named pytest -> false exit 20) and run_precommit returns 0 without linting when there is no .pre-commit-config.yaml
+
+- 2026-08-15T14:13:55Z `issue`: finish.sh gate is blind to uv-managed envs: run_tests uses bare `python3 -m pytest` (No module named pytest -> false exit 20) and run_precommit returns 0 without linting when there is no .pre-commit-config.yaml [~/.claude/scripts/finish.sh]
+- 2026-08-15T14:18:42Z `fix`: finish.sh: added py_runner precedence (uv --frozen > poetry > .venv > PATH) for pytest, a ruff/mypy fallback when there is no .pre-commit-config.yaml, and coverage flags when the repo configures coverage. Verified: aseprite-mcp gate now exits 0 with 881 passed/100% branch; bare-python fallback repo still passes; failing tests still exit 20 on both paths. [~/.claude/scripts/finish.sh]

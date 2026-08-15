@@ -79,7 +79,14 @@ coverage.xml
 # watch.pid/watch.log belong to the local `pjm watch` daemon, and
 # structure.json is a rebuildable code-structure cache, and .current_issue is
 # a transient pointer to whichever issue this machine is working on.
+#
+# The spool is where the AUTOMATIC writers (the post-commit/post-merge
+# auto-capture hooks and the churn daemon) stage events, so they never write to
+# a tracked file outside a commit and leave the tree dirty behind it. The
+# pre-commit hook folds it into events.jsonl and stages both.
 .projectmem/.current_issue
 .projectmem/watch.pid
 .projectmem/watch.log
 .projectmem/structure.json
+.projectmem/events.spool.jsonl
+.projectmem/events.spool.consuming.jsonl
