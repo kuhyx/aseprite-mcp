@@ -12,6 +12,7 @@ a dedicated one-off sprite instead of exhausting the shared one.
 """
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 from conftest import BASE, ok, run
@@ -193,13 +194,17 @@ def test_set_cel_position_create_if_missing_with_source(sprite: str) -> None:
     )
 
 
-def test_set_cel_position_missing_cel_no_create_is_noop(sprite: str) -> None:
-    # create_if_missing defaults False and there's no cel on frame 5 yet;
-    # the Lua "if not cel then return end" branch fires but the script
-    # still prints OK, so this is a fabricated success (no bug fix here,
-    # just documenting current behavior per task instructions).
-    result = ok(run(animation.set_cel_position(sprite, "body", 5, 9, 9)))
-    assert "Cel position set" in result
+def test_set_cel_position_missing_cel_no_create_errors(sprite: str) -> None:
+    # add_frames seeds every new frame with a copy of the source cel, so clear
+    # frame 5 first to make "no cel here" true. create_if_missing defaults
+    # False, so the hoisted guard ends the Lua chunk before saveAs -- mtime
+    # proves nothing was written on the error path.
+    ok(run(animation.clear_cel(sprite, "body", 5)))
+    before = Path(sprite).stat().st_mtime_ns
+    result = run(animation.set_cel_position(sprite, "body", 5, 9, 9))
+    assert result.startswith("Failed to set cel position:"), result
+    assert "No cel at that layer/frame" in result
+    assert Path(sprite).stat().st_mtime_ns == before, "file was saved on error path"
 
 
 # --- tween_cel_positions ---
@@ -265,6 +270,11 @@ def test_offset_cel_positions_missing_layer(sprite: str) -> None:
 
 
 def test_create_cel_success(sprite: str) -> None:
+    # add_frames copies the source frame's cels into the new frames, so frame
+    # 6 already carries a "body" cel. create_cel now errors on an existing cel
+    # instead of silently no-opping, so clear it first to exercise the real
+    # creation path.
+    ok(run(animation.clear_cel(sprite, "body", 6)))
     ok(run(animation.create_cel(sprite, "body", 6, 3, 3)))
 
 
@@ -278,18 +288,24 @@ def test_create_cel_missing_layer(sprite: str) -> None:
     assert "Layer not found" in result
 
 
-def test_create_cel_already_exists_is_noop(sprite: str) -> None:
-    # frame 1 already has a "body" cel; the Lua "if cel then return end"
-    # branch fires but still prints OK -- fabricated success, documenting
-    # current behavior only.
-    result = ok(run(animation.create_cel(sprite, "body", 1, 0, 0)))
-    assert "Cel created" in result
+def test_create_cel_already_exists_errors(sprite: str) -> None:
+    # frame 1 already has a "body" cel, so creating another must fail rather
+    # than report a cel it did not create.
+    before = Path(sprite).stat().st_mtime_ns
+    result = run(animation.create_cel(sprite, "body", 1, 0, 0))
+    assert result.startswith("Failed to create cel:"), result
+    assert "Cel already exists" in result
+    assert Path(sprite).stat().st_mtime_ns == before, "file was saved on error path"
 
 
 # --- clear_cel ---
 
 
 def test_clear_cel_success(sprite: str) -> None:
+    # test_create_cel_success already put a cel on frame 6, and create_cel now
+    # errors on an existing cel rather than silently no-opping, so clear first
+    # and re-create to make this test's setup explicit.
+    ok(run(animation.clear_cel(sprite, "body", 6)))
     ok(run(animation.create_cel(sprite, "body", 6, 0, 0)))
     ok(run(animation.clear_cel(sprite, "body", 6)))
 
@@ -345,13 +361,15 @@ def test_copy_cel_missing_layer(sprite: str) -> None:
     assert "Layer not found" in result
 
 
-def test_copy_cel_no_source_cel_is_noop(sprite: str) -> None:
+def test_copy_cel_no_source_cel_errors(sprite: str) -> None:
     # Ensure frame 6 has no cel right before use (earlier tests in this
-    # file may have populated it) so "if not src then return end" fires;
-    # the script still prints OK -- fabricated success.
+    # file may have populated it) so the missing-source guard fires.
     ok(run(animation.clear_cel(sprite, "body", 6)))
-    result = ok(run(animation.copy_cel(sprite, "body", 6, 2)))
-    assert "Cel copied" in result
+    before = Path(sprite).stat().st_mtime_ns
+    result = run(animation.copy_cel(sprite, "body", 6, 2))
+    assert result.startswith("Failed to copy cel:"), result
+    assert "No source cel" in result
+    assert Path(sprite).stat().st_mtime_ns == before, "file was saved on error path"
 
 
 # --- copy_frame ---
@@ -379,13 +397,14 @@ def test_copy_frame_source_out_of_range(sprite: str) -> None:
     assert "Source frame out of range" in result
 
 
-def test_copy_frame_target_out_of_range_is_fabricated_success(sprite: str) -> None:
-    # dst_idx out of range -> Lua "if dst_idx < 1 or dst_idx > #spr.frames
-    # then return end" fires *inside* the transaction, still prints OK;
-    # Python reports success. Fabricated success, documenting current
-    # behavior only (not touching source per task instructions).
-    result = ok(run(animation.copy_frame(sprite, 1, 999, overwrite=True)))
-    assert "copied to frame 999" in result
+def test_copy_frame_target_out_of_range_errors(sprite: str) -> None:
+    # dst_idx out of range must fail rather than report a frame it never
+    # wrote. The guard now runs before the transaction opens.
+    before = Path(sprite).stat().st_mtime_ns
+    result = run(animation.copy_frame(sprite, 1, 999, overwrite=True))
+    assert result.startswith("Failed to copy frame:"), result
+    assert "Target frame out of range" in result
+    assert Path(sprite).stat().st_mtime_ns == before, "file was saved on error path"
 
 
 # --- propagate_frame_to_range ---

@@ -387,17 +387,23 @@ async def set_cel_position(
         print("ERROR:Frame index out of range") return
     end
 
+    local frame = spr.frames[idx]
+    local source_frame = {source_idx}
+    if source_frame == nil then
+        source_frame = idx
+    end
+    if not target_layer:cel(frame) then
+        if not {create_flag} then
+            print("ERROR:No cel at that layer/frame") return
+        end
+        if source_frame < 1 or source_frame > #spr.frames then
+            print("ERROR:Source frame out of range") return
+        end
+    end
+
     app.transaction(function()
-        local frame = spr.frames[idx]
         local cel = target_layer:cel(frame)
-        if not cel and {create_flag} then
-            local source_frame = {source_idx}
-            if source_frame == nil then
-                source_frame = idx
-            end
-            if source_frame < 1 or source_frame > #spr.frames then
-                return
-            end
+        if not cel then
             local source_cel = target_layer:cel(spr.frames[source_frame])
             if source_cel then
                 local img = source_cel.image:clone()
@@ -407,7 +413,6 @@ async def set_cel_position(
                 cel = spr:newCel(target_layer, frame, img, Point(0, 0))
             end
         end
-        if not cel then return end
         cel.position = Point({x}, {y})
     end)
 
@@ -639,10 +644,10 @@ async def create_cel(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
+    local frame = spr.frames[idx]
+    if target:cel(frame) then print("ERROR:Cel already exists at that layer/frame") return end
+
     app.transaction(function()
-        local frame = spr.frames[idx]
-        local cel = target:cel(frame)
-        if cel then return end
         local img = Image(spr.width, spr.height, spr.colorMode)
         spr:newCel(target, frame, img, Point({x}, {y}))
     end)
@@ -759,9 +764,12 @@ async def copy_cel(
     local target = find_layer(spr, "{safe_layer_name}")
     if not target then print("ERROR:Layer not found") return end
 
+    if not target:cel(spr.frames[src_idx]) then
+        print("ERROR:No source cel at that layer/frame") return
+    end
+
     app.transaction(function()
         local src = target:cel(spr.frames[src_idx])
-        if not src then return end
         local dst = target:cel(spr.frames[dst_idx])
         if dst and {replace_flag} then
             spr:deleteCel(dst)
@@ -829,12 +837,15 @@ async def copy_frame(
     if src_idx < 1 or src_idx > #spr.frames then print("ERROR:Source frame out of range") return end
 
     local dst_idx = {target_idx}
+    if dst_idx ~= nil and (dst_idx < 1 or dst_idx > #spr.frames) then
+        print("ERROR:Target frame out of range") return
+    end
+
     app.transaction(function()
         local dst_frame = nil
         if dst_idx == nil then
             dst_frame = spr:newFrame()
         else
-            if dst_idx < 1 or dst_idx > #spr.frames then return end
             dst_frame = spr.frames[dst_idx]
             if {overwrite_flag} then
                 for _, layer in ipairs(spr.layers) do
