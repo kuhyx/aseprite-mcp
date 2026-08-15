@@ -56,8 +56,10 @@ after each redraw; do not batch two fixes on one icon.**
 
 ## Construction data (measured, not recalled)
 
-Measured from shipped CC0/CC-BY-SA sets — see `references/MEASUREMENTS.md` and
-`references/SHAPE_RESEARCH.md` in this repo, with sources in `CREDITS.md`.
+Measured from shipped CC0/CC-BY-SA sets. The full measurement tables live in the
+`aseprite-mcp` repo at `references/MEASUREMENTS.md` and
+`references/SHAPE_RESEARCH.md` (repo root, **not** this skill's `references/`),
+with licences and attribution in `references/CREDITS.md`.
 
 ### Round objects
 
@@ -150,9 +152,15 @@ anatomical; a *vertical* one reads as a lollipop stick.
 3. **Probe with `get_composite_rect` as you go.** A success response is not
    evidence; several tools report OK having done nothing.
 4. **`outline_cel` exactly once, last.**
-5. Export at 8x, `Read` the PNG, and build a contact sheet on **both** a dark
-   and a light background. Upscaling an export with a NEAREST resize is display
-   scaling and is allowed; synthesising pixels in a script is not.
+5. Export at 8x with `export_frame(scale=8)`, then `Read` **a scratchpad copy**
+   of the PNG, and check it on both a dark and a light background. Upscaling an
+   export with a NEAREST resize is display scaling and is allowed; synthesising
+   pixels in a script is not.
+
+   > **Never `Read` a file you intend to commit.** `Read` passes images through
+   > `hooks/shrink_images_pretool.sh`, which **downscales them in place** — it
+   > corrupted a committed asset in a later session. `cp` to the scratchpad and
+   > Read the copy. See `references/showcase.md`.
 6. Apply the gates below to what Aseprite actually contains, read back through
    `get_composite_rect` — not to a text file you authored.
 7. **Present to the human and ask.** Your own review is a filter, never a
@@ -183,6 +191,16 @@ anatomical; a *vertical* one reads as a lollipop stick.
 | **Drawn bounds == intended bounds** | Pixels silently dropped outside the cel | No recorded incident; `draw_pixels_at` drops out-of-bounds pixels while reporting success, and the transparent `draw_rectangle_at` in step 2 exists to prevent it |
 | **Frame margins on EVERY frame** | A 1px animation bob eats the 1px border and re-clips the outline | The static check could not see it — it only inspected the unshifted art |
 | **Adjacent frames must differ** | Static "animations" | `audit_animation` reported a **four-identical-frame** animation as clean |
+
+The last two are animation gates — **`skills/pixel-animation/SKILL.md` owns
+them**, including the pairwise form that closes the `A,B,A,B` hole an
+adjacent-only check lets through. Read it before bobbing an icon; the margin
+interaction with `outline_cel` (it grows the art 1px per side, so draw 16x16 ink
+at y=3..12 to keep 2px margins) is the thing that bites.
+
+**Showing the finished set is part of the job**, and it is not automatic — see
+`references/showcase.md`. Committing only `.aseprite` sources leaves the
+icons unviewable without Aseprite installed.
 
 **A tool returning success is not evidence** (`BUGS_FOUND.md`). Probe with
 `get_composite_rect` or re-open the export.

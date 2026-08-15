@@ -28,6 +28,10 @@ no human prior, silhouette-free, and — crucially — the one hard constraint
 > The "solved" status above was recorded before that rule existed; the seam and
 > quadrant metrics still hold, but the tiles behind it were not verified as
 > MCP-drawn.
+>
+> **Resolved:** the set was redrawn through the MCP and the `.aseprite` sources
+> are tracked in `examples/tileset/`. What was *not* solved was getting the art
+> in front of the user — see step 10.
 
 ## The one-paragraph version
 
@@ -162,10 +166,27 @@ flow rather than the whole texture sliding sideways.
 Then: `set_frame_duration_all(180)`, `set_tag("flow", 1, 4)`,
 `export_tag(..., "water_flow.gif", scale)`.
 
+`export_tag` takes `scale` — **one call gives you the scaled animated GIF.** Do
+not export frames and stitch them with ImageMagick; a later session did that,
+having checked `export_sprite` (which genuinely has no `scale`) and generalised
+from it. See `skills/pixel-animation/SKILL.md` step 5.
+
 ### 9. Verify the exported GIF, not the source frames
 
 Re-open the GIF, diff consecutive frames **including the wrap**, and assert
 every step changed. See the animation trap below — this is not paranoia.
+
+**Coalesce before diffing**: `magick out.gif -coalesce /tmp/scratch/coal_%d.png`.
+GIF delta-optimization stores later frames cropped to the changed region
+(`256x232+0+8`), so diffing raw frames compares different-sized canvases and
+proves nothing. This step is why "verify the exported GIF" can be followed to
+the letter and still miss.
+
+### 10. Show the tiles — sources alone are not a deliverable
+
+Full procedure in `references/showcase.md`. A session finished this
+tileset, committed only the `.aseprite` files, and the user's next question was
+"where can I see those?" — the answer was nowhere.
 
 ---
 
