@@ -11,12 +11,13 @@ success even though the subprocess itself exits 0).
 
 The five layer-less tools (draw_pixels, draw_line, draw_rectangle,
 fill_area, draw_circle) target app.activeCel / spr.layers[1] rather than
-a named layer, and unlike draw_pixels_at they have no cel-growth or
-canvas bounds guard -- a putPixel outside the active cel's bounding box
-is silently discarded while the tool still reports success. So for those
-five we only assert success (`ok(...)`), never pixel content -- there is
-no reliable way to know which cel is active from here, and asserting
-content would be testing a guess, not the file's documented behavior.
+a named layer. They all grow the cel now: draw_pixels and draw_line gained
+the union/regrow block in 4119aff, and the other three dispatch
+app.useTool, which grows the cel itself. So for those five we still only
+assert success (`ok(...)`), never pixel content -- there is no reliable
+way to know which cel is active from here, and asserting content would be
+testing a guess. Cel growth for the layer-less tools is asserted in
+test_drawing_fixes.py, where the target layer is unambiguous.
 """
 
 from collections.abc import Callable

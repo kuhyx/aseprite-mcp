@@ -66,7 +66,8 @@ async def draw_pixels(
 
     The cel is grown to fit pixels outside its current bounds, so drawing in
     a previously-empty area works. Pixels outside the CANVAS are still
-    impossible and are reported as skipped.
+    impossible; unlike draw_pixels_at, this tool does not report how many
+    were skipped, so prefer draw_pixels_at when that matters.
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
