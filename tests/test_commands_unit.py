@@ -37,13 +37,24 @@ def test_reject_traversal_flags_dotdot_component() -> None:
     )
 
 
-def test_reject_traversal_allows_dotdot_that_normalizes_away() -> None:
-    # os.path.normpath collapses "foo/../bar.aseprite" to "bar.aseprite"
-    # BEFORE the ".." check runs, so a mid-path ".." that cancels out is not
-    # caught here. Only traversal that survives normalization (e.g. a
-    # leading "../") is rejected. Documenting actual behavior, not
-    # asserting it's the ideal behavior - see report for the caveat.
-    assert reject_traversal("foo/../bar.aseprite") is None
+def test_reject_traversal_flags_dotdot_that_would_normalize_away() -> None:
+    # The check runs on the RAW components, so a mid-path ".." is rejected
+    # even though os.path.normpath would collapse it to "bar.aseprite".
+    # Normalizing first made the guard depend on whether the traversal
+    # happened to cancel out, which is not a security property.
+    assert reject_traversal("foo/../bar.aseprite") == (
+        "Invalid filename: parent directory traversal not allowed"
+    )
+
+
+def test_reject_traversal_allows_dotdot_inside_a_filename() -> None:
+    # Only a whole ".." path COMPONENT is traversal. A filename that merely
+    # contains ".." is legitimate and must still pass -- this is why the
+    # check splits on separators instead of doing a substring search.
+    assert reject_traversal("foo..bar.aseprite") is None
+    assert reject_traversal("dir/foo..bar.aseprite") is None
+    assert reject_traversal("..leading.aseprite") is None
+    assert reject_traversal("trailing...aseprite") is None
 
 
 def test_reject_traversal_flags_dotdot_that_survives_normalization() -> None:

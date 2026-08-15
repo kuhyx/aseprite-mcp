@@ -4,11 +4,9 @@ Covers validation guards on render_onion_skin/get_color_stats and
 out-of-range frame indices on compare_frames/get_color_stats.
 """
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from conftest import BASE, ok, run
 
 from aseprite_mcp.tools import analysis
@@ -49,15 +47,11 @@ def test_render_onion_skin_bad_before_after(sprite: str) -> None:
 
 
 def test_render_onion_skin_rejects_traversal(sprite: str) -> None:
-    # os.path.normpath collapses "BASE/../x" before reject_traversal's check
-    # ever sees a ".." component, so an absolute path can't trigger the
-    # guard. A relative path that walks above cwd survives normpath instead.
-    # Skip (rather than assert) if this pytest run's cwd doesn't produce one,
-    # so the test is cwd-robust instead of cwd-asserting.
-    traversal_path = os.path.relpath(f"{BASE}/evil_onion.png")
-    if ".." not in Path(traversal_path).parts:
-        pytest.skip(f"cwd {Path.cwd()!r} yields no '..' in relpath")
-    result = run(analysis.render_onion_skin(sprite, 1, traversal_path))
+    # reject_traversal now checks raw components, so a mid-path ".." is
+    # caught whether or not normalization would cancel it out. This used to
+    # need a cwd-dependent relpath (and a skip when the cwd produced none)
+    # because only traversal surviving normpath was rejected.
+    result = run(analysis.render_onion_skin(sprite, 1, f"{BASE}/../evil_onion.png"))
     assert "Invalid" in result
 
 

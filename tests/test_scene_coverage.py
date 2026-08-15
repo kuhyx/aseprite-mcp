@@ -4,11 +4,11 @@ Not hit by test_error_propagation.py: missing source/target files, empty
 layer list, the all-layers-present success path (no "MISSING:" line), and
 the traversal guard.
 
-Note: reject_traversal runs AFTER both os.path.exists checks in
-copy_layers_between_sprites, and os.path.normpath collapses "x/../y" before
-the ".." check ever sees it, so an absolute path can never trigger the
-guard for a file that exists. The only way in is a relative path that
-walks above cwd (os.path.relpath keeps a leading ".." through normpath).
+Note: reject_traversal still runs AFTER both os.path.exists checks in
+copy_layers_between_sprites, so a path containing ".." is only reached when
+the file exists. reject_traversal itself no longer normalizes first, so a
+mid-path ".." is now caught rather than being collapsed away before the
+check could see it.
 """
 
 import os

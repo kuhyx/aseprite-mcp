@@ -26,13 +26,17 @@ def reject_traversal(path: str) -> str | None:
     Returns an error message string when the path contains a `..`
     component, or None when the path looks safe.
 
-    The check works on normalized path components, so it does not
-    false-positive on filenames like `foo..bar.aseprite` (the previous
-    `'..' in path` substring check did). Absolute paths and tilde
-    expansion are not rejected here: this function targets traversal
-    only, not access scoping.
+    The check works on raw path components, so it does not false-positive
+    on filenames like `foo..bar.aseprite` (the previous `'..' in path`
+    substring check did) and does not false-NEGATIVE on a `..` that
+    normalization would cancel out. Normalizing first meant
+    `foo/../bar.aseprite` was accepted while `../bar.aseprite` was
+    rejected, i.e. the guard depended on whether the traversal happened to
+    resolve back inside the tree -- not a security property. Absolute
+    paths and tilde expansion are not rejected here: this function targets
+    traversal only, not access scoping.
     """
-    parts = os.path.normpath(path).replace("\\", "/").split("/")
+    parts = path.replace("\\", "/").split("/")
     if ".." in parts:
         return "Invalid filename: parent directory traversal not allowed"
     return None
