@@ -15,11 +15,13 @@ no human prior, silhouette-free, and — crucially — the one hard constraint
 (seamlessness) is **machine-checkable**. That is what makes them winnable.
 
 > **Draw the tiles through the MCP, not with the example script.**
-> `references/example_tileset.py` builds tiles with PIL — its own docstring says
-> it authors them. That is the path the user banned after the item-icon audit
+> `references/example_tileset.py` builds tiles with PIL: it fills via
+> `Image.new`, stamps every pixel with `putpixel`, and never calls
+> `Image.open`. That is the path the user banned after the item-icon audit
 > (see `skills/item-icons/SKILL.md`), so treat it as a **record of the cluster
-> placements**, to be redrawn with `draw_pixels_at` / `draw_rectangle_at`. The
-> hook does not block it by name, but it would deny the PIL calls inside it.
+> placements** — the coordinate tables are still the valuable part — to be
+> redrawn with `draw_pixels_at` / `draw_rectangle_at`. The hook does not block
+> it by name, but `putpixel` hits its hard-deny branch.
 > `references/tiletool.py` is unaffected — it *reads* exported PNGs to score
 > seams, which is post-processing and stays allowed.
 >

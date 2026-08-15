@@ -168,14 +168,19 @@ anatomical; a *vertical* one reads as a lollipop stick.
 > and running `preview.py` / `circles.py` / `gridtool.py`. The grids kept under
 > `references/passing-grids/` are a **shape reference to redraw from**, and the
 > helper scripts are retained only as a record of how they were made.
+>
+> `references/checkgrid.py` is part of that record too. It gates `.grid` text
+> files (it imports `gridtool` for the glyph map), so it cannot check a sprite
+> and nothing in this procedure calls it. The hook does not block it by name —
+> do not mistake a clean run of it for a gated icon.
 
 ## Gates (each one caught a real defect)
 
 | Gate | Catches | How it failed for real |
 |---|---|---|
 | **Edge margin ≥1px on all four sides** | `outline_cel` writes into transparent neighbours; art flush to the canvas gets **no outline on that side** | 6 of 12 icons shipped with a clipped bottom outline. Confirmed with `get_composite_rect`: raw body colour at y=15 where `#222034` should be |
-| **Colour census on the sprite** | Off-palette colours, and missing features — an absent colour is an absent thing | `get_color_stats(top=16)`; target 4-9 unique colours. Catches what an "undefined glyph" typo used to catch, on the real art |
-| **Drawn bounds == intended bounds** | Pixels silently dropped outside the cel | `draw_pixels_at` drops out-of-bounds pixels while reporting success — hence the transparent `draw_rectangle_at` in step 2 |
+| **Colour census on the sprite** | Off-palette colours, and missing features — an absent colour is an absent thing | `get_color_stats(top=16)`; target 4-9 unique colours. Note this does **not** replace the old "undefined glyph" check — that failure cannot occur once there is no glyph layer |
+| **Drawn bounds == intended bounds** | Pixels silently dropped outside the cel | No recorded incident; `draw_pixels_at` drops out-of-bounds pixels while reporting success, and the transparent `draw_rectangle_at` in step 2 exists to prevent it |
 | **Frame margins on EVERY frame** | A 1px animation bob eats the 1px border and re-clips the outline | The static check could not see it — it only inspected the unshifted art |
 | **Adjacent frames must differ** | Static "animations" | `audit_animation` reported a **four-identical-frame** animation as clean |
 
