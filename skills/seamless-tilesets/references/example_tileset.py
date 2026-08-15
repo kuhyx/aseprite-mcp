@@ -24,7 +24,7 @@ WATER = ("#306082", "#5B6EE1", "#639BFF")
 
 
 def blank(color: str) -> Image.Image:
-    """A tile filled with the given base colour."""
+    """Return a tile filled with the given base colour."""
     return Image.new("RGBA", (SIZE, SIZE), color)
 
 
@@ -136,8 +136,16 @@ def dirt() -> Image.Image:
     # Clods: small irregular dark patches that give the surface relief.
     clod = [(0, 0), (1, 0), (2, 1), (1, 1)]
     for x, y in [
-        (5, 7), (17, 4), (27, 11), (9, 19), (21, 23), (31, 3),
-        (1, 30), (14, 26), (24, 30), (12, 11),
+        (5, 7),
+        (17, 4),
+        (27, 11),
+        (9, 19),
+        (21, 23),
+        (31, 3),
+        (1, 30),
+        (14, 26),
+        (24, 30),
+        (12, 11),
     ]:
         cluster(img, x, y, clod, DIRT[0])
     return img
@@ -267,31 +275,120 @@ def main() -> None:
         sys.stdout.write(f"wrote {n}.png\n")
 
 
-
-
 def _irregular_edge(seed_row: list[int]) -> list[int]:
-    """A hand-authored per-column depth profile for an organic boundary."""
+    """Return a hand-authored per-column depth profile for an organic boundary."""
     return seed_row
 
 
 # Hand-picked depth profiles: how far the top terrain intrudes, per column.
 # Irregular by design so the boundary doesn't read as a ruled line.
 GRASS_DIRT_EDGE = [
-    14, 15, 15, 16, 16, 15, 14, 14, 13, 14, 15, 16, 17, 17, 16, 15,
-    15, 16, 16, 17, 16, 15, 14, 13, 13, 14, 15, 15, 16, 16, 15, 14,
+    14,
+    15,
+    15,
+    16,
+    16,
+    15,
+    14,
+    14,
+    13,
+    14,
+    15,
+    16,
+    17,
+    17,
+    16,
+    15,
+    15,
+    16,
+    16,
+    17,
+    16,
+    15,
+    14,
+    13,
+    13,
+    14,
+    15,
+    15,
+    16,
+    16,
+    15,
+    14,
 ]
 SAND_WATER_EDGE = [
-    16, 16, 17, 18, 18, 17, 16, 16, 15, 15, 16, 17, 18, 18, 17, 16,
-    16, 15, 15, 16, 17, 17, 18, 17, 16, 15, 15, 16, 16, 17, 17, 16,
+    16,
+    16,
+    17,
+    18,
+    18,
+    17,
+    16,
+    16,
+    15,
+    15,
+    16,
+    17,
+    18,
+    18,
+    17,
+    16,
+    16,
+    15,
+    15,
+    16,
+    17,
+    17,
+    18,
+    17,
+    16,
+    15,
+    15,
+    16,
+    16,
+    17,
+    17,
+    16,
 ]
 GRASS_SAND_EDGE = [
-    15, 16, 16, 15, 14, 14, 15, 16, 17, 17, 16, 15, 15, 14, 14, 15,
-    16, 17, 17, 16, 15, 14, 14, 15, 16, 16, 17, 16, 15, 15, 14, 15,
+    15,
+    16,
+    16,
+    15,
+    14,
+    14,
+    15,
+    16,
+    17,
+    17,
+    16,
+    15,
+    15,
+    14,
+    14,
+    15,
+    16,
+    17,
+    17,
+    16,
+    15,
+    14,
+    14,
+    15,
+    16,
+    16,
+    17,
+    16,
+    15,
+    15,
+    14,
+    15,
 ]
 
 
-def transition(top: Image.Image, bottom: Image.Image, depth: list[int],
-               fringe: str | None = None) -> Image.Image:
+def transition(
+    top: Image.Image, bottom: Image.Image, depth: list[int], fringe: str | None = None
+) -> Image.Image:
     """Composite `top` over `bottom` along a hand-authored depth profile.
 
     Both textures keep their own identity because each pixel comes from a real
@@ -302,8 +399,9 @@ def transition(top: Image.Image, bottom: Image.Image, depth: list[int],
         for y in range(depth[x]):
             out.putpixel((x, y), top.getpixel((x, y)))
         if fringe is not None:
-            out.putpixel((x, depth[x]), Image.new(
-                "RGBA", (1, 1), fringe).getpixel((0, 0)))
+            out.putpixel(
+                (x, depth[x]), Image.new("RGBA", (1, 1), fringe).getpixel((0, 0))
+            )
     return out
 
 
@@ -322,11 +420,13 @@ def grass_sand() -> Image.Image:
     return transition(grass(), sand(), GRASS_SAND_EDGE, None)
 
 
-TILES.update({
-    "grass_dirt": grass_dirt,
-    "sand_water": sand_water,
-    "grass_sand": grass_sand,
-})
+TILES.update(
+    {
+        "grass_dirt": grass_dirt,
+        "sand_water": sand_water,
+        "grass_sand": grass_sand,
+    }
+)
 
 
 if __name__ == "__main__":
@@ -341,15 +441,40 @@ def water_frame(shift: int) -> Image.Image:
     """
     img = blank(WATER[1])
     for x, y in [
-        (0, 3), (9, 5), (18, 2), (27, 6), (4, 10), (13, 12),
-        (22, 9), (30, 13), (2, 17), (11, 19), (20, 16), (28, 20),
-        (6, 24), (15, 26), (24, 23), (31, 28), (8, 30), (17, 29),
+        (0, 3),
+        (9, 5),
+        (18, 2),
+        (27, 6),
+        (4, 10),
+        (13, 12),
+        (22, 9),
+        (30, 13),
+        (2, 17),
+        (11, 19),
+        (20, 16),
+        (28, 20),
+        (6, 24),
+        (15, 26),
+        (24, 23),
+        (31, 28),
+        (8, 30),
+        (17, 29),
     ]:
         shapes = (RIPPLE, RIPPLE3, RIPPLE2)
         cluster(img, x + shift, y, shapes[(x + y) % 3], WATER[0])
     for x, y in [
-        (5, 1), (14, 7), (23, 4), (31, 10), (7, 14), (16, 21),
-        (25, 18), (1, 22), (10, 27), (19, 31), (28, 25), (3, 7),
+        (5, 1),
+        (14, 7),
+        (23, 4),
+        (31, 10),
+        (7, 14),
+        (16, 21),
+        (25, 18),
+        (1, 22),
+        (10, 27),
+        (19, 31),
+        (28, 25),
+        (3, 7),
     ]:
         shapes = (RIPPLE2, RIPPLE, RIPPLE2)
         cluster(img, x - shift, y, shapes[(x * 2 + y) % 3], WATER[2])

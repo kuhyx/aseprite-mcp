@@ -9,12 +9,22 @@ demanding the edges be identical.
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
 from PIL import Image
 
 SIZE = 32
+
+# Seam-energy threshold, calibrated against controls by calibrate(): a
+# provably seamless tile (wrapping sinusoid) scores ~1.6 and a hard
+# half/half seam ~31, so anything under this is texture variation rather
+# than a seam. Documented in seamless-tilesets/SKILL.md.
+SEAM_ENERGY_MAX = 4.0
+# Quadrant-weight ceiling: how unevenly ink may sit across the four
+# quadrants before the tile reads as lopsided when repeated.
+QUADRANT_WEIGHT_MAX = 1.18
 
 
 def load(path: Path) -> Image.Image:
@@ -91,8 +101,6 @@ def calibrate() -> None:
     Run this instead of guessing a threshold. A guessed 1.35 once flagged five
     perfectly good tiles; these two controls show the real scale in one command.
     """
-    import math
-
     good = Image.new("RGBA", (SIZE, SIZE))
     bad = Image.new("RGBA", (SIZE, SIZE))
     for y in range(SIZE):
@@ -133,9 +141,15 @@ def main() -> None:
         # horizontal wrap and their vertical JOIN to a neighbour are checked.
         is_transition = "_" in p.stem
         if is_transition:
-            flag = "OK " if h < 4.0 else "SEAM"
+            flag = "OK " if h < SEAM_ENERGY_MAX else "SEAM"
         else:
-            flag = "OK " if h < 4.0 and v < 4.0 and w < 1.18 else "SEAM"
+            flag = (
+                "OK "
+                if h < SEAM_ENERGY_MAX
+                and v < SEAM_ENERGY_MAX
+                and w < QUADRANT_WEIGHT_MAX
+                else "SEAM"
+            )
         sys.stdout.write(f"{flag} {p.stem:12s} h={h:.2f} v={v:.2f} weight={w:.2f}\n")
         repeat(img).save(p.parent / f"repeat_{p.stem}.png")
 

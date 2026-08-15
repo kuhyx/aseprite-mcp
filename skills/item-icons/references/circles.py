@@ -31,7 +31,7 @@ def deltas(runs: list[int]) -> list[int]:
 
 
 def is_round(runs: list[int]) -> bool:
-    """True when deltas are non-increasing and never re-widen after a hold."""
+    """Report whether deltas are non-increasing and never re-widen after a hold."""
     ds = deltas(runs)
     if any(x < 0 for x in ds):
         return False

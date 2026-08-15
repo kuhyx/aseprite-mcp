@@ -65,9 +65,12 @@ def grid_to_pixels(grid: str, ox: int = 0, oy: int = 0) -> list[dict[str, object
 
 def main() -> None:
     """Read a grid file and emit the pixel JSON payload."""
+    # argv: <grid> [origin_x] [origin_y]
+    argc_with_ox = 3
+    argc_with_oy = 4
     src = Path(sys.argv[1])
-    ox = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-    oy = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    ox = int(sys.argv[2]) if len(sys.argv) >= argc_with_ox else 0
+    oy = int(sys.argv[3]) if len(sys.argv) >= argc_with_oy else 0
     px = grid_to_pixels(src.read_text(encoding="utf-8"), ox, oy)
     sys.stdout.write(json.dumps(px))
 
