@@ -111,13 +111,13 @@ def test_sheet_missing_file_key_raises_font_error(tmp_path: Path) -> None:
         fontlib.BitmapFont(str(tmp_path))
 
 
-def test_sheet_missing_cell_w_raises_bare_key_error(tmp_path: Path) -> None:
-    """Cover a known bug in cell_w/cell_h/ascent key handling.
+def test_sheet_missing_cell_w_raises_font_error(tmp_path: Path) -> None:
+    """A malformed font.json must raise FontError, like every other case.
 
-    They are read with int(sheet[...]) OUTSIDE the try/except that wraps
-    sheet loading, so a missing key surfaces as a bare KeyError instead of
-    the module's own FontError. Documented here as current behaviour, not
-    fixed (see report).
+    cell_w/cell_h/ascent used to be read with int(sheet[...]) OUTSIDE the
+    try/except wrapping sheet loading, so a missing one surfaced as a bare
+    KeyError -- inconsistent with the missing-"file" key, which was caught
+    by the very same handler.
     """
     _blank_sheet(tmp_path, "s.png")
     _write_font_json(
@@ -127,7 +127,7 @@ def test_sheet_missing_cell_w_raises_bare_key_error(tmp_path: Path) -> None:
             "sheets": [{"file": "s.png", "cell_h": 4, "ascent": 3, "chars": ["A"]}],
         },
     )
-    with pytest.raises(KeyError):
+    with pytest.raises(fontlib.FontError, match="Bad sheet"):
         fontlib.BitmapFont(str(tmp_path))
 
 
@@ -299,14 +299,15 @@ def test_dark_ink_rule_with_advance_ink(tmp_path: Path) -> None:
     assert glyph.advance == 4
 
 
-def test_dark_ink_rule_blank_leftmost_column_yields_empty_box(tmp_path: Path) -> None:
-    """Cover a known bug in _read_cell's dark-mode box_h scan.
+def test_dark_ink_rule_blank_leftmost_column_still_reads_ink(tmp_path: Path) -> None:
+    """A glyph with a left-side bearing must still rasterise.
 
-    It only probes column `ox` (the cell's leftmost pixel) to find where
-    the white background resumes. If a glyph's ink does not touch the
-    leftmost column, is_background(ox, ...) reports background from row 0
-    onward, box_h comes out 0, and a visibly inked cell rasterises to *no*
-    ink at all. Documented as current behaviour, not fixed (see report).
+    The dark-mode box_h scan used to probe only column `ox` (the cell's
+    leftmost pixel). When a glyph's ink did not touch that column,
+    is_background(ox, ...) reported background from row 0 onward, box_h
+    came out 0, and a visibly inked cell rasterised to *no* ink -- the
+    glyph silently vanished at space width. The scan now tests whole
+    rows/columns.
     """
     img = Image.new("RGBA", (6, 6), (255, 255, 255, 255))
     px = img.load()
@@ -333,8 +334,48 @@ def test_dark_ink_rule_blank_leftmost_column_yields_empty_box(tmp_path: Path) ->
     )
     font = fontlib.BitmapFont(str(tmp_path))
     glyph = font.glyph(ord("A"))
-    assert glyph.ink == set()
-    assert glyph.height == 0
+    # The 4x4 ink block at (1,1)-(4,4) must be found despite column 0 and
+    # row 0 being background.
+    assert glyph.ink, "inked cell rasterised to nothing"
+    assert glyph.height == 5
+    assert (1, 1) in glyph.ink
+
+
+def test_dark_ink_rule_blank_top_row_still_reads_ink(tmp_path: Path) -> None:
+    """The box_w mirror of the bug above.
+
+    The width scan probed only row `oy`, so a glyph with a top-side bearing
+    (an underscore, a comma) collapsed to box_w == 0 by the same logic.
+    Fixing only the height scan would have left this half live.
+    """
+    img = Image.new("RGBA", (6, 6), (255, 255, 255, 255))
+    px = img.load()
+    # Ink only on the bottom rows: row 0 is entirely background.
+    for y in range(4, 6):
+        for x in range(5):
+            px[x, y] = (0, 0, 0, 255)
+    img.save(tmp_path / "s.png")
+    _write_font_json(
+        tmp_path,
+        {
+            "name": "dark-toprow",
+            "sheets": [
+                {
+                    "file": "s.png",
+                    "cell_w": 6,
+                    "cell_h": 6,
+                    "ascent": 5,
+                    "ink_rule": "dark",
+                    "advance": "box",
+                    "chars": ["A"],
+                }
+            ],
+        },
+    )
+    font = fontlib.BitmapFont(str(tmp_path))
+    glyph = font.glyph(ord("A"))
+    assert glyph.ink, "inked cell rasterised to nothing"
+    assert (0, 4) in glyph.ink
 
 
 def test_alpha_ink_rule_blank_cell_advance_box(tmp_path: Path) -> None:

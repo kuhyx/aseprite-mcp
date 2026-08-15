@@ -54,7 +54,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, ImageDraw, ImageFont
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from PIL.ImageFont import FreeTypeFont
 
@@ -124,8 +124,14 @@ class BitmapFont:
         self._index: dict[int, tuple[int, int, int]] = {}
 
         for sheet in spec.get("sheets") or ():
+            # The required keys are read inside the same handler as the image
+            # load: a font.json missing cell_w/cell_h/ascent is exactly as
+            # malformed as one missing "file", and must fail the same way.
             try:
                 image = Image.open(Path(path, sheet["file"])).convert("RGBA")
+                cell_w = int(sheet["cell_w"])
+                cell_h = int(sheet["cell_h"])
+                ascent = int(sheet["ascent"])
             except (OSError, KeyError) as exc:
                 msg = f"Bad sheet in {descriptor}: {exc}"
                 raise FontError(msg) from exc
@@ -133,9 +139,9 @@ class BitmapFont:
                 {
                     "px": image.load(),
                     "size": image.size,
-                    "cell_w": int(sheet["cell_w"]),
-                    "cell_h": int(sheet["cell_h"]),
-                    "ascent": int(sheet["ascent"]),
+                    "cell_w": cell_w,
+                    "cell_h": cell_h,
+                    "ascent": ascent,
                     "origin": tuple(sheet.get("origin", (0, 0))),
                     # "alpha": a transparent pixel is empty and the cell is the glyph
                     #          box (Minecraft-style sheets).
@@ -182,6 +188,39 @@ class BitmapFont:
         self._cache[codepoint] = glyph
         return glyph
 
+    @staticmethod
+    def _measure_dark_box(
+        is_background: Callable[[int, int], bool],
+        ox: int,
+        oy: int,
+        max_w: int,
+        max_h: int,
+    ) -> tuple[int, int]:
+        """Measure a dark-rule glyph box: origin through the last inked line.
+
+        Each axis tests a whole column/row rather than the single pixel on
+        the cell's leftmost column or top row. A glyph with a left- or
+        top-side bearing is background there even though the cell is inked,
+        which collapsed the box to zero and made the glyph render as a blank
+        of space width.
+        """
+
+        def column_is_background(x: int) -> bool:
+            return all(is_background(x, oy + y) for y in range(max_h))
+
+        def row_is_background(y: int) -> bool:
+            return all(is_background(ox + x, y) for x in range(max_w))
+
+        box_w = 0
+        box_h = 0
+        for x in range(max_w):
+            if not column_is_background(ox + x):
+                box_w = x + 1
+        for y in range(max_h):
+            if not row_is_background(oy + y):
+                box_h = y + 1
+        return box_w, box_h
+
     def _read_cell(self, sheet_index: int, row: int, col: int) -> Glyph:
         sheet = self._sheets[sheet_index]
         px = sheet["px"]
@@ -202,21 +241,13 @@ class BitmapFont:
 
         box_w, box_h = cell_w, cell_h
         if dark:
-            # The box runs from the cell origin until the white sheet background.
-            box_w = 0
-            while (
-                box_w < cell_w
-                and ox + box_w < sheet_w
-                and not is_background(ox + box_w, oy)
-            ):
-                box_w += 1
-            box_h = 0
-            while (
-                box_h < cell_h
-                and oy + box_h < sheet_h
-                and not is_background(ox, oy + box_h)
-            ):
-                box_h += 1
+            box_w, box_h = self._measure_dark_box(
+                is_background,
+                ox,
+                oy,
+                min(cell_w, sheet_w - ox),
+                min(cell_h, sheet_h - oy),
+            )
 
         ink: set[Point] = set()
         ink_width = 0
