@@ -140,30 +140,43 @@ anatomical; a *vertical* one reads as a lollipop stick.
 
 ## Procedure
 
-1. **Author the icon as an ASCII glyph grid**, one character per pixel, mapped
-   to palette hex. The grid is the artwork — it is drawn, reviewed and revised
-   as pixels. Round shapes come from the gated circle generator, then are
-   hand-shaded; everything else is placed by hand.
-2. **Gate the grid before it reaches Aseprite** (see below). Fix every FATAL.
-3. **Render the grid to a PNG preview and LOOK at it** before spending any MCP
-   calls. Most defects are visible here and cost nothing to fix.
-4. Establish full-canvas cel bounds with a transparent `draw_rectangle_at`,
-   then one `draw_pixels_at` with the whole payload.
-5. **`outline_cel` exactly once, last.**
-6. Export at 8x, `Read` the PNG, and build a contact sheet on **both** a dark
-   and a light background.
+1. **Plan the icon against the construction data above** — silhouette, the
+   readable feature that keeps it off the "barebones" list, and the palette
+   ramp. Sketching a layout in scratch notes is fine; what follows is what
+   makes it art.
+2. Establish full-canvas cel bounds with a transparent `draw_rectangle_at`
+   (`draw_pixels_at` drops pixels outside the cel's current bounds), then draw
+   the icon with `draw_pixels_at` / `draw_rectangle_at` / `draw_line_at`.
+3. **Probe with `get_composite_rect` as you go.** A success response is not
+   evidence; several tools report OK having done nothing.
+4. **`outline_cel` exactly once, last.**
+5. Export at 8x, `Read` the PNG, and build a contact sheet on **both** a dark
+   and a light background. Upscaling an export with a NEAREST resize is display
+   scaling and is allowed; synthesising pixels in a script is not.
+6. Apply the gates below to what Aseprite actually contains, read back through
+   `get_composite_rect` — not to a text file you authored.
 7. **Present to the human and ask.** Your own review is a filter, never a
    verdict — measured across this session, self-review agreed with the human
    roughly half the time.
+
+> **Do not author icons as ASCII `.grid` files rendered to PNG.** Steps 1-3 of
+> this skill used to say exactly that, and an audit of session `ec51350e` found
+> the six "approved" icons below were produced with **0 `draw_pixels_at` calls**
+> and 114 Bash/python invocations — what the human approved were PIL previews of
+> text files, and Aseprite drew none of it. The path is now blocked by
+> `~/.claude/hooks/pixelart_mcp_only_pretool.sh`, which denies writing `*.grid`
+> and running `preview.py` / `circles.py` / `gridtool.py`. The grids kept under
+> `references/passing-grids/` are a **shape reference to redraw from**, and the
+> helper scripts are retained only as a record of how they were made.
 
 ## Gates (each one caught a real defect)
 
 | Gate | Catches | How it failed for real |
 |---|---|---|
 | **Edge margin ≥1px on all four sides** | `outline_cel` writes into transparent neighbours; art flush to the canvas gets **no outline on that side** | 6 of 12 icons shipped with a clipped bottom outline. Confirmed with `get_composite_rect`: raw body colour at y=15 where `#222034` should be |
-| **Undefined glyph check** | Typos in the grid | A `U` that was never in the palette map |
-| **Row width == canvas width** | Ragged grids | A 17-wide row in a 16px grid |
-| **Frame margins on EVERY generated frame** | A 1px animation bob eats the 1px border and re-clips the outline | The static gate could not see it — it only inspects the unshifted grid |
+| **Colour census on the sprite** | Off-palette colours, and missing features — an absent colour is an absent thing | `get_color_stats(top=16)`; target 4-9 unique colours. Catches what an "undefined glyph" typo used to catch, on the real art |
+| **Drawn bounds == intended bounds** | Pixels silently dropped outside the cel | `draw_pixels_at` drops out-of-bounds pixels while reporting success — hence the transparent `draw_rectangle_at` in step 2 |
+| **Frame margins on EVERY frame** | A 1px animation bob eats the 1px border and re-clips the outline | The static check could not see it — it only inspected the unshifted art |
 | **Adjacent frames must differ** | Static "animations" | `audit_animation` reported a **four-identical-frame** animation as clean |
 
 **A tool returning success is not evidence** (`BUGS_FOUND.md`). Probe with

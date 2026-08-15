@@ -14,6 +14,19 @@ Tiles are, per `PIXEL_ART_FEASIBILITY.md`, the #2 easiest subject for an LLM:
 no human prior, silhouette-free, and — crucially — the one hard constraint
 (seamlessness) is **machine-checkable**. That is what makes them winnable.
 
+> **Draw the tiles through the MCP, not with the example script.**
+> `references/example_tileset.py` builds tiles with PIL — its own docstring says
+> it authors them. That is the path the user banned after the item-icon audit
+> (see `skills/item-icons/SKILL.md`), so treat it as a **record of the cluster
+> placements**, to be redrawn with `draw_pixels_at` / `draw_rectangle_at`. The
+> hook does not block it by name, but it would deny the PIL calls inside it.
+> `references/tiletool.py` is unaffected — it *reads* exported PNGs to score
+> seams, which is post-processing and stays allowed.
+>
+> The "solved" status above was recorded before that rule existed; the seam and
+> quadrant metrics still hold, but the tiles behind it were not verified as
+> MCP-drawn.
+
 ## The one-paragraph version
 
 Fill the tile with a base colour. Stamp small, hand-placed clusters of a

@@ -21,12 +21,13 @@ they are in this repo and they encode mistakes that cost a full session each:
 
 ## What exists already
 
-Six approved 16x16 icons live in
+Six approved 16x16 icon *designs* live in
 `skills/item-icons/references/passing-grids/`: **key, scroll, book, bone, gem,
-bomb**. They are ASCII glyph grids — one character per pixel, mapped to
-dawnbringer32 by `references/gridtool.py`. Six other icons (potion, sword,
-shield, coin, ring, meat) were drawn and **rejected**; do not resurrect them
-without redrawing from scratch.
+bomb**. They are ASCII glyph grids — one character per pixel, with the
+character→dawnbringer32 mapping documented in `references/gridtool.py`. Read
+them as a **shape reference to redraw from**, not as art to load: see "Working
+method" below. Six other icons (potion, sword, shield, coin, ring, meat) were
+drawn and **rejected**; do not resurrect them without redrawing from scratch.
 
 A working animation driver was built last session but lives only in a
 scratchpad that has since been cleared. **You will need to rebuild it** — the
@@ -81,12 +82,30 @@ check:
 `quality`. `add_frames(file, count)` → `animation` (note: `canvas.add_frame`
 takes only a filename, no index).
 
-## Working method that proved out
+## Working method
 
-Author frames as ASCII grids, gate them, render a PNG preview and **look at it
-before spending MCP calls**, then push each frame with one `draw_pixels_at`
-after establishing full-canvas cel bounds with a transparent
-`draw_rectangle_at`. Outline once per frame, last.
+**Draw every pixel through the MCP.** Establish full-canvas cel bounds with a
+transparent `draw_rectangle_at` first (`draw_pixels_at` drops pixels outside the
+cel's current bounds), then build each frame with `draw_pixels_at` /
+`draw_rectangle_at` / `draw_line_at`. Outline once per frame, last. Verify with
+`get_composite_rect` — success responses are not evidence. To *see* a frame,
+`export_sprite` and upscale the PNG with a NEAREST resize; that is display
+scaling, not drawing.
+
+**Do not author frames as ASCII `.grid` files and render them to PNG.** An
+earlier version of this document recommended exactly that, and it is now
+blocked: `~/.claude/hooks/pixelart_mcp_only_pretool.sh` denies `Write`/`Edit`
+to `*.grid` and blocks `preview.py` / `circles.py` / `gridtool.py`. The rule
+exists because an audit of session `ec51350e` found the six "approved" static
+icons were made with **0 `draw_pixels_at` calls** — what was approved were
+PIL-rendered previews of text files, and Aseprite drew none of it.
+
+Consequence for the input art: the six grids under `passing-grids/` are a
+*reference for shape*, not a delivery format. Read them to see what shape was
+approved, then draw that shape with MCP calls. Scripts may still post-process
+**exported** images (GIF frame-diffing, contact sheets, frame strips) — the
+hook allows PIL that opens a real export, and the animation gates below depend
+on it.
 
 ## How to judge
 
