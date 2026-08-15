@@ -72,3 +72,14 @@ coverage.xml
 # conventions. Licences and attribution are in references/CREDITS.md — read it
 # before reusing these, one set is CC-BY-SA (ShareAlike), the rest are CC0.
 !references/**/*.png
+
+# projectmem. events.jsonl is the append-only source of truth that summary.md
+# is regenerated from, so it IS committed — ignoring it would mean the memory
+# does not survive a clone. Only the runtime/derived files are ignored:
+# watch.pid/watch.log belong to the local `pjm watch` daemon, and
+# structure.json is a rebuildable code-structure cache, and .current_issue is
+# a transient pointer to whichever issue this machine is working on.
+.projectmem/.current_issue
+.projectmem/watch.pid
+.projectmem/watch.log
+.projectmem/structure.json
