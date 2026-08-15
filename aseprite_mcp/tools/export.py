@@ -253,6 +253,22 @@ async def export_frame(
     if not output_filename.lower().endswith(".png"):
         output_filename = f"{output_filename}.png"
 
+    # --frame-range silently clamps/no-ops for an out-of-range frame and the
+    # CLI still exits 0, writing a transparent PNG. A produced file is
+    # therefore not proof the frame existed, so validate up front — the same
+    # approach export_tag uses for tags.
+    check = f"""
+    local spr = app.activeSprite
+    if not spr then print("ERROR:No active sprite") return end
+    if {frame_index} < 1 or {frame_index} > #spr.frames then
+        print("ERROR:Frame index out of range") return
+    end
+    print("OK")
+    """
+    valid, out = AsepriteCommand.execute_lua_script_checked(check, filename)
+    if not valid:
+        return f"Failed to export frame: {out}"
+
     f0 = frame_index - 1  # CLI --frame-range is 0-based
     args = [
         "--batch",

@@ -406,7 +406,9 @@ async def draw_circle(
     center_y: Annotated[
         int, Field(description="Y coordinate of the circle's center (sprite-global)")
     ],
-    radius: Annotated[int, Field(description="Radius of the circle in pixels")],
+    radius: Annotated[
+        int, Field(description="Radius of the circle in pixels; must be > 0")
+    ],
     color: Annotated[
         str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
     ] = "#000000",
@@ -422,6 +424,8 @@ async def draw_circle(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
+    if radius <= 0:
+        return "Radius must be > 0"
 
     rgb = _parse_hex_color(color)
     if rgb is None:
@@ -860,7 +864,9 @@ async def draw_circle_at(
     center_y: Annotated[
         int, Field(description="Y coordinate of the circle's center (sprite-global)")
     ],
-    radius: Annotated[int, Field(description="Radius of the circle in pixels")],
+    radius: Annotated[
+        int, Field(description="Radius of the circle in pixels; must be > 0")
+    ],
     color: Annotated[
         str, Field(description='Hex color code, e.g. "#FF0000" or "#FF0000FF"')
     ] = "#000000",
@@ -882,6 +888,8 @@ async def draw_circle_at(
     """
     if not await path_exists(filename):
         return f"File {filename} not found"
+    if radius <= 0:
+        return "Radius must be > 0"
 
     rgb = _parse_hex_color(color)
     if rgb is None:

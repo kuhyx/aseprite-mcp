@@ -139,27 +139,46 @@ def test_export_frame_appends_png_extension(sprite: str) -> None:
     assert result == f"Frame 1 exported to {out}.png at 1x"
 
 
-def test_export_frame_out_of_range_frame_fabricates_success() -> None:
-    # KNOWN BUG (not fixed here, out of scope for this pass): a frame index
-    # past the last frame does NOT error. Aseprite's --frame-range silently
-    # clamps/no-ops and the CLI still exits 0, so export_frame reports
-    # success and writes a transparent/empty PNG instead of failing.
-    # Verified directly: the written file is fully transparent, not a real
-    # render of any existing frame. Documenting actual behavior so this
-    # regresses loudly if the underlying CLI behavior ever changes.
+def test_export_frame_out_of_range_frame_errors() -> None:
+    # Aseprite's --frame-range silently clamps/no-ops for a frame past the
+    # last one and the CLI still exits 0, so the frame index is validated up
+    # front instead -- the same approach export_tag uses for tags. Without
+    # it, the tool wrote a fully transparent PNG and called it a success.
     fresh = _fresh_sprite("export-frame-oob")
     out = f"{BASE}/frame_oob.png"
     result = run(export.export_frame(fresh, 999, out))
-    assert result == f"Frame 999 exported to {out} at 1x"
-    assert Path(out).exists()
+    assert result.startswith("Failed to export frame:"), result
+    assert "Frame index out of range" in result
+    assert not Path(out).exists(), "wrote a file for a frame that does not exist"
 
 
 def test_export_frame_reports_subprocess_failure() -> None:
+    # The frame-index precheck also goes through run_command (via
+    # execute_lua_script_checked), so let the precheck succeed and fail only
+    # the export itself -- otherwise this covers the validation branch
+    # instead of the CLI-failure branch it is meant to exercise.
     fresh = _fresh_sprite("export-frame-fail")
-    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+    with (
+        patch(
+            "aseprite_mcp.tools.export.AsepriteCommand.execute_lua_script_checked"
+        ) as check,
+        patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m,
+    ):
+        check.return_value = (True, "OK")
         m.return_value = (False, "boom")
         result = run(export.export_frame(fresh, 1, f"{BASE}/frame_fail.png"))
     assert result == "Failed to export frame: boom"
+
+
+def test_export_frame_reports_precheck_failure() -> None:
+    # The precheck's own failure path, distinct from the CLI failure above.
+    fresh = _fresh_sprite("export-frame-precheck-fail")
+    with patch(
+        "aseprite_mcp.tools.export.AsepriteCommand.execute_lua_script_checked"
+    ) as check:
+        check.return_value = (False, "no sprite")
+        result = run(export.export_frame(fresh, 1, f"{BASE}/frame_precheck.png"))
+    assert result == "Failed to export frame: no sprite"
 
 
 def test_export_frame_renames_frame_numbered_sibling() -> None:

@@ -905,3 +905,17 @@ def test_at_tools_no_cel_without_create_flag_error(sprite: str) -> None:
         elif Path(sprite).stat().st_mtime_ns != before:
             failures.append(f"{name}: saved the file on the error path")
     assert not failures, "\n".join(failures)
+
+
+def test_draw_circle_rejects_non_positive_radius(sprite: str) -> None:
+    assert run(drawing.draw_circle(sprite, 16, 16, 0)) == "Radius must be > 0"
+    assert run(drawing.draw_circle(sprite, 16, 16, -3)) == "Radius must be > 0"
+
+
+def test_draw_circle_at_rejects_non_positive_radius(sprite: str) -> None:
+    assert (
+        run(drawing.draw_circle_at(sprite, "body", 1, 8, 8, 0)) == "Radius must be > 0"
+    )
+    assert (
+        run(drawing.draw_circle_at(sprite, "body", 1, 8, 8, -2)) == "Radius must be > 0"
+    )
