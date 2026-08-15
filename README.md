@@ -92,7 +92,7 @@ base tiles with an irregular interlocking edge, not a straight cut.
     <td align="center"><sub><b>water</b>, animated</sub></td>
   </tr>
   <tr>
-    <td align="center" colspan="2"><img src="examples/tileset/water_flow_sheet.png" width="640" alt="Water flow animation: four frames of a horizontally scrolling wave pattern"></td>
+    <td align="center" colspan="2"><img src="examples/tileset/water_flow_sheet.png" width="1024" alt="Water flow animation: four frames of a horizontally scrolling wave pattern"></td>
   </tr>
   <tr>
     <td align="center" colspan="2"><sub>The water tile's 4-frame <code>flow</code> loop as a spritesheet. Each frame shifts the
