@@ -89,6 +89,30 @@ def check_motion(frames: list[Image.Image], label: str) -> list[str]:
     return [f"{label}: all {n} adjacent pairs differ (wrap included) OK"]
 
 
+def check_distinct(frames: list[Image.Image], label: str, need: int) -> list[str]:
+    """Require at least `need` distinct frames in the loop.
+
+    `check_motion` only compares ADJACENT pairs, so an `A,B,A,B` sequence —
+    a 2-frame flicker padded out to 4 — passes it while frames 1 and 3 are
+    byte-identical. Verified: that exact case passed both check_motion and
+    check_oscillation before this gate existed.
+
+    `need` is not always the frame count. A symmetric 1px bob (0,-1,-2,-1)
+    legitimately revisits a height, giving 3 distinct frames out of 4 — that
+    is what a bob IS, not a padded loop. Demand 3 there and 4 for travelling
+    motion, rather than forcing the art to satisfy the metric.
+    """
+    n = len(frames)
+    uniq = len({f.tobytes() for f in frames})
+    if uniq < need:
+        msg = (
+            f"{label}: only {uniq} distinct frames out of {n} "
+            f"(need >= {need}) — padded loop"
+        )
+        raise GateError(msg)
+    return [f"{label}: {uniq}/{n} frames distinct (need >= {need}) OK"]
+
+
 def centroid(img: Image.Image) -> tuple[float, float]:
     """Alpha-weighted centre of mass of a frame."""
     alpha = img.getchannel("A")
@@ -228,6 +252,8 @@ def main() -> None:
         for i, f in enumerate(frames, 1):
             out += check_margins(f, need, f"{gif.name} f{i}")
         out += check_motion(frames, gif.name)
+        # A bob revisits one height by design; travelling motion must not.
+        out += check_distinct(frames, gif.name, 3 if is_bob else len(frames))
         if is_bob:
             out += check_oscillation(frames, gif.name, 1.0)
         elif do_wrap:
