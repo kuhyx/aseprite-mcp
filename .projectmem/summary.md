@@ -41,6 +41,7 @@ check its own work, not just push pixels.
 - gotcha: in Aseprite Lua, a `return` inside app.transaction(function() ... end) exits ONLY the closure — execution falls through to spr:saveAs + print("OK"), so the tool reports success AND rewrites the file. Every guard must sit ABOVE the transaction. This exact bug was found in 14 tools across canvas/animation/drawing on 2026-08-15; use the REQUIRE_CEL snippet in core/lua.py. [aseprite_mcp/core/lua.py]
 - gotcha: Aseprite exits 0 on failure — it clamps an out-of-range --frame-range and writes a transparent PNG, exits 0 on a corrupt file (only stderr "Error reading header"), and Sprite:saveAs() fails silently. Never treat exit status as success: validate inputs up front and confirm the output file exists afterwards. [aseprite_mcp/tools/export.py]
 - gotcha: when testing that a failed call did NOT write, assert on file mtime, not bytes — saveAs on an unmutated sprite can rewrite byte-identical content, so a byte comparison passes even when the tool wrongly saved. [tests/]
+- New feature: feat: add projectmem, and a CLAUDE.md that carries the root causes [.gitignore]
 
 ## Key files
 - `examples/tileset/water.aseprite`
