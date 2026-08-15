@@ -1,0 +1,3 @@
+# #0004 Reopened (closed in error by a record_fix that had no active issue): export_frame's frame-numbered sibling fallback still exists, narrowed to digit-suffixed matches only after it was found clobbering unrelated files. The path only runs when the expected output file is absent. Open, low priority.
+
+- 2026-08-15T14:29:10Z `issue`: Reopened (closed in error by a record_fix that had no active issue): export_frame's frame-numbered sibling fallback still exists, narrowed to digit-suffixed matches only after it was found clobbering unrelated files. The path only runs when the expected output file is absent. Open, low priority. [aseprite_mcp/tools/export.py]
