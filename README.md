@@ -8,15 +8,15 @@ A Python MCP server that gives AI assistants full control over [Aseprite](https:
 
 <table>
   <tr>
-    <td align="center"><img src="examples/swordsman/swordsman.png" width="256" alt="Pixel-art swordsman drawn by Claude Fable 5"></td>
-    <td align="center"><img src="examples/swordsman/swordsman_slash.gif" width="256" alt="4-frame sword slash animation by Claude Fable 5"></td>
+    <td align="center"><img src="examples/swordsman/swordsman.png" width="480" alt="Pixel-art swordsman drawn by Claude Fable 5"></td>
+    <td align="center"><img src="examples/swordsman/swordsman_slash.gif" width="384" alt="4-frame sword slash animation by Claude Fable 5"></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Task 1</b> — <em>"Draw me a pixel art of a swordsman."</em><br>32×32 still, exported at 10×.</sub></td>
     <td align="center"><sub><b>Task 2</b> — <em>"…a sword slash attack sequence, from windup to follow-through."</em><br>4-frame animation, exported with <code>export_tag</code>.</sub></td>
   </tr>
   <tr>
-    <td align="center" colspan="2"><img src="examples/swordsman/swordsman_slash_sheet.png" width="520" alt="Slash sequence spritesheet: windup, extension, swing, follow-through"></td>
+    <td align="center" colspan="2"><img src="examples/swordsman/swordsman_slash_sheet.png" width="1536" alt="Slash sequence spritesheet: windup, extension, swing, follow-through"></td>
   </tr>
   <tr>
     <td align="center" colspan="2"><sub>The same slash as a spritesheet (<code>export_spritesheet</code>): windup → extension → swing → follow-through.</sub></td>
@@ -32,17 +32,21 @@ and outlined with `outline_cel`.
 
 <table>
   <tr>
-    <td align="center"><img src="examples/icon-animation/key_x8.png" width="96" alt="Pixel-art key icon"></td>
-    <td align="center"><img src="examples/icon-animation/scroll_x8.png" width="96" alt="Pixel-art scroll icon"></td>
-    <td align="center"><img src="examples/icon-animation/book_x8.png" width="96" alt="Pixel-art book icon"></td>
-    <td align="center"><img src="examples/icon-animation/bone_x8.png" width="96" alt="Pixel-art bone icon"></td>
-    <td align="center"><img src="examples/icon-animation/gem_x8.png" width="96" alt="Pixel-art gem icon"></td>
-    <td align="center"><img src="examples/icon-animation/bomb_x8.png" width="96" alt="Pixel-art bomb icon"></td>
+    <td align="center"><img src="examples/icon-animation/key_x8.png" width="128" alt="Pixel-art key icon"></td>
+    <td align="center"><img src="examples/icon-animation/scroll_x8.png" width="128" alt="Pixel-art scroll icon"></td>
+    <td align="center"><img src="examples/icon-animation/book_x8.png" width="128" alt="Pixel-art book icon"></td>
   </tr>
   <tr>
     <td align="center"><sub>key</sub></td>
     <td align="center"><sub>scroll</sub></td>
     <td align="center"><sub>book</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="examples/icon-animation/bone_x8.png" width="128" alt="Pixel-art bone icon"></td>
+    <td align="center"><img src="examples/icon-animation/gem_x8.png" width="128" alt="Pixel-art gem icon"></td>
+    <td align="center"><img src="examples/icon-animation/bomb_x8.png" width="128" alt="Pixel-art bomb icon"></td>
+  </tr>
+  <tr>
     <td align="center"><sub>bone</sub></td>
     <td align="center"><sub>gem</sub></td>
     <td align="center"><sub>bomb</sub></td>
@@ -56,34 +60,42 @@ base tiles with an irregular interlocking edge, not a straight cut.
 
 <table>
   <tr>
-    <td align="center"><img src="examples/tileset/grass_x8.png" width="112" alt="Seamless grass tile"></td>
-    <td align="center"><img src="examples/tileset/dirt_x8.png" width="112" alt="Seamless dirt tile"></td>
-    <td align="center"><img src="examples/tileset/stone_x8.png" width="112" alt="Seamless stone tile"></td>
-    <td align="center"><img src="examples/tileset/sand_x8.png" width="112" alt="Seamless sand tile"></td>
+    <td align="center"><img src="examples/tileset/grass_x8.png" width="256" alt="Seamless grass tile"></td>
+    <td align="center"><img src="examples/tileset/dirt_x8.png" width="256" alt="Seamless dirt tile"></td>
   </tr>
   <tr>
     <td align="center"><sub>grass</sub></td>
     <td align="center"><sub>dirt</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="examples/tileset/stone_x8.png" width="256" alt="Seamless stone tile"></td>
+    <td align="center"><img src="examples/tileset/sand_x8.png" width="256" alt="Seamless sand tile"></td>
+  </tr>
+  <tr>
     <td align="center"><sub>stone</sub></td>
     <td align="center"><sub>sand</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="examples/tileset/grass_dirt_x8.png" width="112" alt="Grass to dirt transition tile"></td>
-    <td align="center"><img src="examples/tileset/sand_water_x8.png" width="112" alt="Sand to water transition tile"></td>
-    <td align="center"><img src="examples/tileset/grass_sand_x8.png" width="112" alt="Grass to sand transition tile"></td>
-    <td align="center"><img src="examples/tileset/water_flow_x8.gif" width="112" alt="4-frame animated water tile"></td>
+    <td align="center"><img src="examples/tileset/grass_dirt_x8.png" width="256" alt="Grass to dirt transition tile"></td>
+    <td align="center"><img src="examples/tileset/sand_water_x8.png" width="256" alt="Sand to water transition tile"></td>
   </tr>
   <tr>
     <td align="center"><sub>grass → dirt</sub></td>
     <td align="center"><sub>sand → water</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="examples/tileset/grass_sand_x8.png" width="256" alt="Grass to sand transition tile"></td>
+    <td align="center"><img src="examples/tileset/water_flow_x8.gif" width="256" alt="4-frame animated water tile"></td>
+  </tr>
+  <tr>
     <td align="center"><sub>grass → sand</sub></td>
     <td align="center"><sub><b>water</b>, animated</sub></td>
   </tr>
   <tr>
-    <td align="center" colspan="4"><img src="examples/tileset/water_flow_sheet.png" width="560" alt="Water flow animation: four frames of a horizontally scrolling wave pattern"></td>
+    <td align="center" colspan="2"><img src="examples/tileset/water_flow_sheet.png" width="640" alt="Water flow animation: four frames of a horizontally scrolling wave pattern"></td>
   </tr>
   <tr>
-    <td align="center" colspan="4"><sub>The water tile's 4-frame <code>flow</code> loop as a spritesheet. Each frame shifts the
+    <td align="center" colspan="2"><sub>The water tile's 4-frame <code>flow</code> loop as a spritesheet. Each frame shifts the
     wave pattern by an equal offset, so the cycle scrolls smoothly and seamlessly.</sub></td>
   </tr>
 </table>
