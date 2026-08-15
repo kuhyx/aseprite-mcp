@@ -1,5 +1,11 @@
 # Exporting, tracking and showing pixel art
 
+> **Canonical copy:** `skills/pixel-animation/references/showcase.md` in the
+> `aseprite-mcp` repo. The copies under `item-icons/` and `seamless-tilesets/`
+> (and everything under `~/.claude/skills/`) are installed duplicates — edit the
+> canonical one and re-run `scripts/install_skills.sh`, which re-copies and then
+> diffs every copy to prove they match.
+
 Shared by `item-icons`, `seamless-tilesets` and `pixel-animation`. Everything
 here was learned by getting it wrong in a session whose art was already finished
 — the drawing was done and the work was still invisible.
@@ -20,9 +26,19 @@ or a file manager, it is not delivered.
 
 ## THE TRAP: `Read` modifies image files in place
 
-**`Read`-ing an image passes it through `hooks/shrink_images_pretool.sh`, which
-rewrites the file on disk at reduced resolution.** It is not a viewer; it is a
-destructive downscale.
+**`Read`-ing an image rewrites the file on disk at reduced resolution.** It is
+not a viewer; it is a destructive downscale.
+
+Mechanism, read from source rather than inferred: `~/.claude/settings.json`
+registers `hooks/shrink_images_pretool.sh` as a **`PreToolUse` hook matching
+`Read`**. It calls `~/.claude/scripts/shrink_screenshot.py`, which caps width at
+`DEFAULT_MAX_WIDTH = 640`, resamples with `Image.LANCZOS`, and saves with
+`resized.save(path)` — **the same path**. Any exported art wider than 640px is
+silently downscaled the moment you look at it, and LANCZOS is precisely the
+bilinear-family filter that destroys hard pixel edges.
+
+This is a *good* hook — screenshots are billed by pixel area — that is simply
+hostile to pixel-art assets. Work around it; don't disable it.
 
 Proven, not assumed:
 
