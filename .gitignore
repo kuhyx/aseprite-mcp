@@ -53,6 +53,13 @@ coverage.xml
 !examples/swordsman/swordsman_slash.gif
 !examples/swordsman/swordsman_slash_sheet.png
 
+# Icon/tile SOURCES drawn via the aseprite MCP. These .aseprite files ARE the
+# artwork — the ASCII grids they replaced were only ever a script's input, and
+# the previous session's work was lost precisely because it stayed untracked.
+# Exports (.png/.gif) remain ignored; they are regenerable from these.
+!examples/icon-animation/*.aseprite
+!examples/tileset/*.aseprite
+
 # Third-party reference sheets, vendored deliberately for measuring pixel-art
 # conventions. Licences and attribution are in references/CREDITS.md — read it
 # before reusing these, one set is CC-BY-SA (ShareAlike), the rest are CC0.
