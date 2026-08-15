@@ -202,6 +202,24 @@ def test_export_frame_renames_frame_numbered_sibling() -> None:
     assert not Path(sibling).exists()
 
 
+def test_export_frame_rename_ignores_unrelated_siblings() -> None:
+    # The fallback used to glob "<stem>*<suffix>", which also matched files
+    # like <stem>ine.png or <stem>_backup.png -- and it RENAMES the first
+    # match over the requested path. Only digit-suffixed siblings (the shape
+    # Aseprite actually produces) may be adopted.
+    fresh = _fresh_sprite("export-frame-unrelated")
+    out = f"{BASE}/shot.png"
+    Path(out).unlink(missing_ok=True)
+    unrelated = Path(f"{BASE}/shot_backup.png")
+    unrelated.write_bytes(b"\x89PNG\r\n\x1a\nUNRELATED")
+    with patch("aseprite_mcp.tools.export.AsepriteCommand.run_command") as m:
+        m.return_value = (True, "")
+        result = run(export.export_frame(fresh, 1, out, scale=1))
+    assert "was not created" in result, result
+    assert unrelated.exists(), "renamed an unrelated file over the output path"
+    assert unrelated.read_bytes().endswith(b"UNRELATED")
+
+
 # ── export_spritesheet: validation branches ─────────────────────────────
 
 

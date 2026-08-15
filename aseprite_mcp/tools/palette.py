@@ -453,7 +453,9 @@ async def generate_color_ramp(
     mid = (steps - 1) / 2
     for i in range(steps):
         # t in [-0.5, 0.5]: negative = shadow side, positive = highlight side
-        t = (i - mid) / (steps - 1) if steps > 1 else 0
+        # steps >= _RAMP_STEPS_MIN (2) is enforced above, so steps - 1 is
+        # never zero here and needs no guard.
+        t = (i - mid) / (steps - 1)
         nh = (h - t * (hue_shift_degrees / 360)) % 1.0
         nl = min(1.0, max(0.0, light + t * lightness_range))
         # Shadows slightly more saturated, highlights slightly less

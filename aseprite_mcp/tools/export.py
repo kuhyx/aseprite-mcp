@@ -140,14 +140,11 @@ async def export_sprite(
     if not output_filename.lower().endswith(f".{output_format}"):
         output_filename = f"{output_filename}.{output_format}"
 
-    # For animated exports
-    if output_format == "gif":
-        args = ["--batch", filename, "--save-as", output_filename]
-        success, output = AsepriteCommand.run_command(args)
-    else:
-        # For still image exports
-        args = ["--batch", filename, "--save-as", output_filename]
-        success, output = AsepriteCommand.run_command(args)
+    # Aseprite picks the encoder from the output extension, so animated (gif)
+    # and still exports issue the identical command; there is no format
+    # branch to make here.
+    args = ["--batch", filename, "--save-as", output_filename]
+    success, output = AsepriteCommand.run_command(args)
 
     # Aseprite exits 0 even when it cannot write the requested format
     # (e.g. output_format="json"). Confirm a file actually appeared. A multi-frame
@@ -284,12 +281,23 @@ async def export_frame(
     if not success:
         return f"Failed to export frame: {output}"
 
-    # With multi-frame sprites Aseprite may append the frame number to
-    # the filename; rename the produced file when that happens.
+    # With multi-frame sprites Aseprite may append the frame number to the
+    # filename; rename the produced file when that happens.
+    #
+    # The pattern is digits-only ("hero[0-9]*.png", then a full isdigit()
+    # check on the suffix) rather than "hero*.png": the loose glob also
+    # matched unrelated files like heroine.png or hero_backup.png, and this
+    # branch RENAMES the first match over the requested path, destroying a
+    # user's file that had nothing to do with the export.
     if not await path_exists(output_filename):
         out_path = Path(output_filename)
-        pattern = f"{out_path.stem}*{out_path.suffix}"
-        candidates = sorted(out_path.parent.glob(pattern))
+        candidates = sorted(
+            candidate
+            for candidate in out_path.parent.glob(
+                f"{out_path.stem}[0-9]*{out_path.suffix}"
+            )
+            if candidate.stem[len(out_path.stem) :].isdigit()
+        )
         if candidates:
             candidates[0].replace(output_filename)
         else:
