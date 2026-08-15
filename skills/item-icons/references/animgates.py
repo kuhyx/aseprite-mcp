@@ -106,6 +106,45 @@ def centroid(img: Image.Image) -> tuple[float, float]:
     return sx / tot, sy / tot
 
 
+def best_shift(a: Image.Image, b: Image.Image) -> tuple[int, int]:
+    """Find the wrapped (dx, dy) that best aligns frame `a` onto frame `b`.
+
+    A full-bleed tile has no transparency, so the alpha centroid is dead
+    centre in every frame and measures zero motion even when the texture
+    clearly scrolls. Matching the actual pixels is what works there.
+    """
+    ga, gb = a.convert("L"), b.convert("L")
+    w, h = ga.size
+    pa, pb = ga.load(), gb.load()
+    best, bxy = None, (0, 0)
+    for dy in range(h):
+        for dx in range(w):
+            err = sum(
+                abs(pa[x, y] - pb[(x + dx) % w, (y + dy) % h])
+                for y in range(0, h, 2)
+                for x in range(0, w, 2)
+            )
+            if best is None or err < best:
+                best, bxy = err, (dx, dy)
+    return bxy
+
+
+def check_tile_flow(frames: list[Image.Image], label: str, tol: float) -> list[str]:
+    """Opaque scrolling tiles: every frame-to-frame shift must be equal."""
+    n = len(frames)
+    shifts = [best_shift(frames[i], frames[(i + 1) % n]) for i in range(n)]
+    mags = [(dx * dx + dy * dy) ** 0.5 for dx, dy in shifts]
+    lo, hi = min(mags), max(mags)
+    if lo <= 0:
+        msg = f"{label}: a step has zero shift {shifts} — frame did not move"
+        raise GateError(msg)
+    ratio = hi / lo
+    if ratio > tol + RATIO_EPS:
+        msg = f"{label}: shift ratio {ratio:.3f} > {tol} shifts={shifts} — loop pops"
+        raise GateError(msg)
+    return [f"{label}: equal shifts {shifts} (ratio {ratio:.3f}) OK"]
+
+
 def _signed_wrapped(delta: float, span: int) -> float:
     """Shortest signed displacement, accounting for wrap around `span`."""
     d = delta % span
