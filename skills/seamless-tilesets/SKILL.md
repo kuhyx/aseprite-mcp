@@ -196,7 +196,7 @@ tileset, committed only the `.aseprite` files, and the user's next question was
   frames.** It checks cels and overlaps, not motion. A static "animation"
   passes it. Always diff the exported frames yourself and **fail closed** when
   any adjacent pair is identical (wrap included).
-- **A tool returning success is not evidence** (`BUGS_FOUND.md`). Probe with
+- **A tool returning success is not evidence.** Probe with
   `get_composite_rect` or re-open the export.
 - **Prefer the `_at` tool variants.** The non-`_at` siblings silently drop
   out-of-bounds pixels while reporting success.
@@ -235,4 +235,5 @@ tileset, committed only the `.aseprite` files, and the user's next question was
 - Boris the Brave, "Classification of Tilesets" — 16-tile Wang vs 47-blob
 - Wolthera, "Animating Water Tiles part 1: Edges" — 4-frame shift technique
 - `PIXEL_ART_FEASIBILITY.md` §5 — why tilesets rank #2 and are machine-checkable
-- `BUGS_FOUND.md` — fabricated success, non-`_at` bounds drops
+- `tofix.md` — remaining known issues (fabricated success and the non-`_at`
+  bounds drops were fixed on 2026-08-15)

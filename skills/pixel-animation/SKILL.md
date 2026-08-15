@@ -135,7 +135,7 @@ static at that step. Do not report success.
 | **Distinct-frame gate must be pairwise** | all N×(N-1)/2 pairs | `A,B,A,B` | An adjacent-only check passes a 2-state flicker as a 4-frame animation |
 
 `audit_animation` returning clean is **not** evidence of motion. A tool
-returning success is not evidence of anything (`BUGS_FOUND.md`).
+returning success is not evidence of anything.
 
 ---
 
@@ -163,4 +163,5 @@ returning success is not evidence of anything (`BUGS_FOUND.md`).
 ## Sources
 
 - Wolthera, "Animating Water Tiles part 1: Edges" — the 4-frame shift technique
-- `BUGS_FOUND.md` — fabricated success, non-`_at` bounds drops
+- `tofix.md` — remaining known issues (fabricated success and the non-`_at`
+  bounds drops were fixed on 2026-08-15)

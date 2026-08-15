@@ -43,10 +43,19 @@ async def create_canvas(
     """
 
     success, output = AsepriteCommand.execute_lua_script_checked(script)
+    if not success:
+        return f"Failed to create canvas: {output}"
 
-    if success:
-        return f"Canvas created successfully: {filename}"
-    return f"Failed to create canvas: {output}"
+    # Sprite:saveAs() fails silently when the destination cannot be written
+    # (e.g. a directory with no write permission): it raises nothing, so the
+    # script still reaches print("OK"). The file's existence is the only
+    # trustworthy signal that the canvas was actually created.
+    if not await path_exists(filename):
+        return (
+            f"Failed to create canvas: Aseprite reported success but "
+            f"{filename} was not created (is the destination writable?)"
+        )
+    return f"Canvas created successfully: {filename}"
 
 
 @mcp.tool(

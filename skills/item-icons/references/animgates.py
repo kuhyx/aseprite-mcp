@@ -4,7 +4,7 @@
 Every check here operates on real Aseprite exports opened from disk — this
 module never synthesises pixels. It exists because the built-in checks lie:
 `audit_animation` reports "clean" on four identical frames, and several MCP
-tools report success having drawn nothing (see BUGS_FOUND.md).
+tools reported success having drawn nothing (fixed 2026-08-15; see tofix.md).
 
 Gates, all hard failures (exit 1) per the user's instruction:
 

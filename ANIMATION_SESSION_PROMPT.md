@@ -14,8 +14,9 @@ they are in this repo and they encode mistakes that cost a full session each:
 - `skills/seamless-tilesets/SKILL.md` — §8/§9 cover animated tiles: why a
   4-frame shift must divide the tile evenly, and why you must verify the
   exported GIF rather than the source frames.
-- `BUGS_FOUND.md` — fabricated success: several tools report OK having done
-  nothing.
+- `tofix.md` — the remaining known issues. The "fabricated success" class
+  (tools reporting OK having done nothing) was fixed on 2026-08-15; those
+  tools now return a hard error instead.
 - `references/CREDITS.md` — licences for the vendored reference sheets. One set
   is CC-BY-SA (ShareAlike); the rest are CC0.
 

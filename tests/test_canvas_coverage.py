@@ -245,3 +245,21 @@ def test_set_layer_reports_subprocess_failure() -> None:
         m.return_value = (False, "boom")
         result = run(canvas.set_layer(fresh, "body"))
     assert result == "Failed to set layer: boom"
+
+
+def test_create_canvas_reports_unwritable_destination() -> None:
+    # Aseprite's Sprite:saveAs() fails silently into a directory it cannot
+    # write: the Lua raises nothing, so print("OK") still runs and the tool
+    # used to report a canvas it never created. Confirm the file's absence
+    # instead of trusting the script's own OK.
+    ro_dir = Path(BASE) / "readonly-dir"
+    ro_dir.mkdir(exist_ok=True)
+    target = ro_dir / "denied.aseprite"
+    target.unlink(missing_ok=True)
+    ro_dir.chmod(0o555)
+    try:
+        result = run(canvas.create_canvas(8, 8, str(target)))
+    finally:
+        ro_dir.chmod(0o755)
+    assert not target.exists(), "test precondition: the write must have failed"
+    assert result.startswith("Failed to create canvas:"), result

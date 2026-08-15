@@ -10,8 +10,9 @@ beat portraits by a wide margin. The reasoning is in §2; it is not about canvas
 size.
 
 This document is analysis only — no art was produced in the session that wrote
-it. It sits alongside [`BUGS_FOUND.md`](BUGS_FOUND.md) as the other
-"what we learned the hard way" doc.
+it. It sits alongside [`tofix.md`](tofix.md) as the other
+"what we learned the hard way" doc. (`BUGS_FOUND.md` was folded into
+`tofix.md` on 2026-08-15 once its entries were fixed.)
 
 ---
 
@@ -40,8 +41,9 @@ Plus `run_lua_script` as an escape hatch for anything uncovered.
 **The readback group is the strategically important one.** It is what separates
 this server from "an LLM emitting pixel coordinates blind". Without
 `get_color_stats` and `get_composite_rect` there is no way to know a drawing
-call did anything — and per `BUGS_FOUND.md`, several tools report success while
-doing nothing at all.
+call did anything. Several tools used to report success while doing nothing at
+all; that class was fixed on 2026-08-15 (see `tofix.md`), but reading back what
+you drew is still the only proof the art is what you intended.
 
 ### Available palette presets
 
@@ -195,7 +197,8 @@ tagging them.
 
 ## 6. Traps that will actually bite
 
-From [`BUGS_FOUND.md`](BUGS_FOUND.md) and the anime skill's hard-won list. These
+From the 2026-08-12 coverage pass (now folded into [`tofix.md`](tofix.md)) and
+the anime skill's hard-won list. These
 are current, unfixed server behaviours — plan around them.
 
 - **Prefer the `_at` variants.** `draw_pixels_at` was fixed to grow the cel
@@ -288,7 +291,8 @@ everywhere.
 Everything above is grounded in files in this repo; no claim is from memory.
 
 - [`README.md`](README.md) — tool tables, "Recommended Workflow for LLMs" (6 steps)
-- [`BUGS_FOUND.md`](BUGS_FOUND.md) — fabricated success, non-`_at` bounds drops
+- [`tofix.md`](tofix.md) — what is still open. Fabricated success and the
+  non-`_at` bounds drops were fixed on 2026-08-15
 - [`skills/anime-pixel-art/SKILL.md`](skills/anime-pixel-art/SKILL.md) — honest status, MCP gotchas, canvas sizing
 - [`skills/anime-pixel-art/references/critique-log.md`](skills/anime-pixel-art/references/critique-log.md) — verbatim human critiques
 - [`skills/anime-pixel-art/references/verification-checks.md`](skills/anime-pixel-art/references/verification-checks.md) — the four deterministic checks

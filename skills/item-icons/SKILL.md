@@ -202,7 +202,7 @@ at y=3..12 to keep 2px margins) is the thing that bites.
 `references/showcase.md`. Committing only `.aseprite` sources leaves the
 icons unviewable without Aseprite installed.
 
-**A tool returning success is not evidence** (`BUGS_FOUND.md`). Probe with
+**A tool returning success is not evidence.** Probe with
 `get_composite_rect` or re-open the export.
 
 ## Traps

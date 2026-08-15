@@ -3,75 +3,78 @@
 Known issues deliberately left for a later session. Nothing here blocks the
 MCP server, the test suite, or the skills.
 
+`BUGS_FOUND.md` used to sit beside this file, holding bugs found during the
+2026-08-12 coverage pass and asserted as *current behaviour* because that
+task's scope was "write tests, don't change behavior". Every entry in it has
+now been fixed (2026-08-15) except the two findings below, which are not
+defects. It has been deleted.
+
 ---
 
-## 22 ruff errors in the vendored skill reference scripts
+## Four unreachable process-failure guards in `pixel_read.py`
 
-**Status:** open. **Found:** 2026-08-15. **Blocks:** nothing.
+**Status:** open by nature. **Found:** 2026-08-12. **Blocks:** nothing.
 
-`uv run ruff check .` reports 22 errors, all in `skills/*/references/*.py`.
-The server package (`aseprite_mcp/`), `tests/` and `scripts/` are clean, and
-857 tests pass.
+`pixel_read.py`'s four `if not success:` branches handle a process-level
+subprocess failure that a real corrupt `.aseprite` file does not produce:
+Aseprite exits 0 even on a bad file (printing "Error reading header" to
+stderr), and the script's own `"ERROR:No active sprite"` line is what
+actually catches it.
 
-These **predate the session that recorded them** — all six files were last
-touched on 2026-08-14 by `c668abf` and `2361966`; the recording session's
-commits are all 2026-08-15. They were vendored in as a record of how the early
-grid-based art was made, and were never linted.
+They are covered by mocking `AsepriteCommand.execute_lua_script` directly.
+That is the honest option — the alternative is deleting real error handling
+because this platform's Aseprite build happens not to exit non-zero.
 
-### Reproduce
+## `export_frame`'s frame-numbered sibling fallback
 
-```bash
-uv run ruff check . --output-format=concise
-```
+**Status:** open, low priority. **Found:** 2026-08-12. **Blocks:** nothing.
 
-### The errors
+`export.py::export_frame` keeps a fallback that adopts a `<stem><n>.png`
+sibling when the exact requested filename was not produced. Verified directly
+that the real Aseprite CLI writes to the exact filename even for frame 2+ of a
+multi-frame sprite, so this path is unreachable here and is covered by a mock.
 
-| File | Count | Rules |
-|---|---:|---|
-| `skills/item-icons/references/checkgrid.py` | 7 | EXE001, PLC0415, C901, PLR0912, PLR2004 ×3 |
-| `skills/seamless-tilesets/references/tiletool.py` | 6 | EXE001, PLC0415, PLR2004 ×4 |
-| `skills/seamless-tilesets/references/example_tileset.py` | 3 | EXE001, D401 ×2 |
-| `skills/item-icons/references/gridtool.py` | 3 | EXE001, PLR2004 ×2 |
-| `skills/item-icons/references/circles.py` | 2 | EXE001, D401 |
-| `skills/item-icons/references/preview.py` | 1 | EXE001 |
+It is kept because the behaviour is undocumented and may differ on another
+platform or Aseprite version. Its glob was tightened on 2026-08-15 to match
+digit suffixes only — it previously matched `heroine.png` for an export to
+`hero.png` and would have renamed that unrelated file over the output path.
 
-Grouped by rule:
+## `set_cel_position` was restructured, not just re-guarded
 
-- **EXE001** (6) — shebang present but the file is not executable. All six are
-  `-rw-r--r--`. Either `chmod +x` them or drop the shebang; see the caveat
-  below, because for some of these files "make it runnable" is the wrong
-  direction.
-- **PLR2004** (9) — magic values in comparisons. Real ones worth naming:
-  `4.0` (the seam-energy threshold) and `1.18` (the quadrant-weight ceiling) in
-  `tiletool.py`. Both are documented constants in `seamless-tilesets/SKILL.md`,
-  so extracting them as named constants would make the code agree with the doc.
-- **D401** (3) — docstring not in imperative mood.
-- **PLC0415** (2) — import not at top level.
-- **C901** + **PLR0912** (2) — `check` in `checkgrid.py` is too complex
-  (14 > 10) with too many branches (13 > 12).
+**Status:** informational. **Blocks:** nothing.
 
-### Caveat — read before "fixing" these
+The 2026-08-15 fabricated-success pass hoisted 15 guards out of
+`app.transaction` closures. Fourteen were pure moves. `set_cel_position` is
+the exception: its `source_frame` defaulting had to move above the
+transaction as well so the guard could see it, and the transaction now
+re-reads `target_layer:cel(frame)`. Behaviour is unchanged and covered, but
+do not assume the diff is a straight lift when reading that function.
 
-These files are **not** all live code, and three are actively blocked:
+---
 
-- `~/.claude/hooks/pixelart_mcp_only_pretool.sh` denies running three of the
-  `item-icons` helpers by name. They are kept as a **record** of how the
-  banned ASCII-grid workflow worked, not as tooling to run. `checkgrid.py`
-  gates `.grid` text files, so it cannot check a sprite and nothing in the
-  skill's procedure calls it.
-- `example_tileset.py` builds tiles with PIL (`putpixel`), which is the path
-  banned after the item-icon audit. `seamless-tilesets/SKILL.md` keeps it only
-  for its cluster-coordinate tables.
-- `tiletool.py` is the exception: it *reads* exported PNGs to score seams,
-  which is post-processing and stays allowed. It is genuinely used.
+## Verified NOT bugs (do not re-file)
 
-So the options, in the order worth considering:
+Recorded here because `BUGS_FOUND.md` claimed each as a defect and a future
+reader would otherwise "fix" working code.
 
-1. **Fix `tiletool.py` properly** — it is live, and naming `4.0` / `1.18` is a
-   real improvement that ties the code to the documented thresholds.
-2. **Decide what the record-only files are for.** If they are documentation,
-   `extend-exclude` on the reference dirs is more honest than making dead code
-   lint-clean. If they should be deleted, the skills already carry the
-   knowledge in prose.
-3. Do **not** blanket-add `# noqa` — per `~/.claude/memories/code-quality.md`,
-   suppressions need a decision first.
+- **`draw_rectangle`, `fill_area`, `draw_circle` do not drop out-of-cel
+  pixels.** `BUGS_FOUND.md` grouped them with `draw_pixels`/`draw_line` as
+  sharing the `putPixel` bounds bug. They dispatch `app.useTool` with
+  sprite-global points, which grows the cel itself. Probed against real
+  Aseprite from a 2x2 cel: all three expanded it (to 26x26, 32x32 and 14x30)
+  with the pixels landing at full alpha.
+  `tests/test_drawing_fixes.py::test_usetool_siblings_already_grow_the_cel`
+  pins this, so switching them to `putPixel` would fail loudly.
+- **`render_onion_skin`'s traversal guard was not dead because of ordering.**
+  `BUGS_FOUND.md` said the check ran after `os.path.exists`. It does not: the
+  `path_exists` call guards the *input* `filename`, while the guarded
+  `output_filename` is never exists-checked. The guard was dead purely because
+  `reject_traversal` normalized first, which is now fixed.
+- **Aseprite's `saveAs()` does NOT ignore directory permissions.**
+  `BUGS_FOUND.md` claimed `create_canvas` into a `chmod 555` directory
+  "writes the file anyway". Re-checked on 2026-08-15: the file is *not*
+  written. The real defect was narrower — `saveAs()` fails silently, so the
+  script still reached `print("OK")` and the tool reported creating a file
+  that does not exist. `create_canvas` now confirms the file exists before
+  reporting success. (Auto-creating *missing parent directories* is real and
+  still happens; that half of the note was accurate.)
