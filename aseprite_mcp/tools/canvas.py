@@ -328,15 +328,12 @@ async def set_layer(
 
     {FIND_LAYER}
     local target = find_layer(spr, "{safe_layer_name}")
+    if not target and not {create_flag} then print("ERROR:Layer not found") return end
 
     app.transaction(function()
         if not target then
-            if {create_flag} then
-                target = spr:newLayer()
-                target.name = "{safe_layer_name}"
-            else
-                return
-            end
+            target = spr:newLayer()
+            target.name = "{safe_layer_name}"
         end
         app.activeLayer = target
     end)

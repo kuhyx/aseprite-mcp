@@ -209,15 +209,16 @@ def test_set_layer_create_if_missing() -> None:
 
 
 def test_set_layer_missing_without_create_flag() -> None:
-    # Note: the Lua `return` inside `app.transaction(function() ... end)`
-    # only exits the transaction closure, not the whole script, so this
-    # still falls through to `spr:saveAs` + "OK" and reports success even
-    # though no layer was actually activated. Suspected bug in canvas.py's
-    # set_layer (the "return" at line ~257 does not skip the trailing
-    # print("OK")). Documented here rather than fixed, per task scope.
+    # The guard is hoisted above app.transaction, so a missing layer ends the
+    # whole Lua chunk before `spr:saveAs` + print("OK") ever run. Asserting
+    # mtime is what distinguishes the real fix from printing "ERROR:" *inside*
+    # the transaction closure, which would report failure but still save.
     fresh = _fresh_sprite("canvas-set-layer-missing")
+    before = Path(fresh).stat().st_mtime_ns
     result = run(canvas.set_layer(fresh, "no-such-layer", create_if_missing=False))
-    assert "Active layer set to 'no-such-layer'" in result
+    assert result.startswith("Failed to set layer:"), result
+    assert "Layer not found" in result
+    assert Path(fresh).stat().st_mtime_ns == before, "file was saved on error path"
 
 
 # --- mocked execute_lua_script_checked: process-level subprocess failures ---
